@@ -61,6 +61,7 @@ struct NewsProvider: AppIntentTimelineProvider {
 
     /// Returns the headlines to show, downloading them when the cache is not recent enough.
     private func loadNews(_ category: NewsCategory, now: Date = Date()) async -> (CachedNews?, downloadFailed: Bool) {
+        cache.removeExpired(now: now)
         let cached = cache.load(category, now: now)
         guard shouldDownload(category, cached: cached, now: now) else {
             return (cached, false)

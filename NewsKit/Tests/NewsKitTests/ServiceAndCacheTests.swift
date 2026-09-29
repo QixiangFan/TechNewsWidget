@@ -37,6 +37,33 @@ private func item(_ path: String, source: String = "s") -> NewsItem {
         #expect(cache.load(.english, now: fetchedAt.addingTimeInterval(CacheLimits.maxAge + 1)) == nil)
     }
 
+    @Test func removesExpiredAndUnreadableFilesOnly() throws {
+        let directory = FileManager.default.temporaryDirectory
+            .appendingPathComponent("NewsKitTests-\(UUID().uuidString)", isDirectory: true)
+        let cache = NewsCache(directory: directory)
+        let now = Date(timeIntervalSince1970: 1_790_000_000)
+        try cache.save(CachedNews(fetchedAt: now, items: [item("fresh")]), for: .english)
+        try cache.save(CachedNews(fetchedAt: now.addingTimeInterval(-CacheLimits.maxAge - 1), items: [item("old")]), for: .github)
+        try Data("not json".utf8).write(to: directory.appendingPathComponent("news-chinese.json"))
+        try Data("keep".utf8).write(to: directory.appendingPathComponent("unrelated.txt"))
+
+        #expect(cache.removeExpired(now: now) == 2)
+        let remaining = try FileManager.default.contentsOfDirectory(atPath: directory.path).sorted()
+        #expect(remaining == ["news-english.json", "unrelated.txt"])
+        #expect(cache.load(.english, now: now)?.items.map(\.title) == ["fresh"])
+    }
+
+    @Test func loadDeletesExpiredFile() throws {
+        let directory = FileManager.default.temporaryDirectory
+            .appendingPathComponent("NewsKitTests-\(UUID().uuidString)", isDirectory: true)
+        let cache = NewsCache(directory: directory)
+        let fetchedAt = Date(timeIntervalSince1970: 1_790_000_000)
+        try cache.save(CachedNews(fetchedAt: fetchedAt, items: [item("x")]), for: .hackerNews)
+
+        #expect(cache.load(.hackerNews, now: fetchedAt.addingTimeInterval(CacheLimits.maxAge + 1)) == nil)
+        #expect(try FileManager.default.contentsOfDirectory(atPath: directory.path).isEmpty)
+    }
+
     @Test func keepsAtMostMaxItemsPerCategory() throws {
         let items = (0..<200).map { item("i\($0)") }
         let data = try NewsCache.encode(CachedNews(fetchedAt: Date(), items: items))

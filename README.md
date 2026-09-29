@@ -25,7 +25,7 @@ Sources are listed in [`NewsKit/Sources/NewsKit/NewsSource.swift`](NewsKit/Sourc
 - A category's headlines are interleaved round-robin, so every source appears near the top.
 - **Small cache.** Each category is one JSON file, overwritten on every refresh. It holds at most 60 items, with titles truncated to 120 characters, and is hard-capped at 64 KB. In practice the whole cache is about 40 KB.
 - Networking uses an ephemeral `URLSession` with no `URLCache`, so raw feeds are never written to disk.
-- Cached headlines older than 3 days are not shown.
+- Cache files older than 3 days (or unreadable) are deleted on every widget refresh, including those of categories no widget shows any more.
 
 All limits live in [`NewsKit/Sources/NewsKit/NewsCache.swift`](NewsKit/Sources/NewsKit/NewsCache.swift).
 
@@ -69,7 +69,7 @@ swift test                  # offline parser and cache tests
 - 同一分类里的多个来源轮流穿插排序，保证每个来源都能出现在靠前的位置。
 - **缓存很小。** 每个分类只存一个 JSON 文件，每次刷新整体覆盖；最多 60 条，标题截断到 120 字，单个文件不超过 64 KB。实际全部缓存合计约 40 KB。
 - 网络请求使用 ephemeral `URLSession`，并关闭了 `URLCache`，订阅原文不会写入磁盘。
-- 超过 3 天的缓存不再显示。
+- 每次小组件刷新时，都会删除超过 3 天或已损坏的缓存文件，包括已经没有小组件在用的分类。
 
 所有上限都定义在 [`NewsKit/Sources/NewsKit/NewsCache.swift`](NewsKit/Sources/NewsKit/NewsCache.swift)。
 

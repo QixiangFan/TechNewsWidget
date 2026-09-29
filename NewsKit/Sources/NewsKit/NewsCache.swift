@@ -35,13 +35,34 @@ public struct NewsCache: Sendable {
     }
 
     /// Returns the cached news, or nil if there is none or it is older than `CacheLimits.maxAge`.
+    /// Expired or unreadable files are deleted on the spot.
     public func load(_ category: NewsCategory, now: Date = Date()) -> CachedNews? {
-        guard let data = try? Data(contentsOf: fileURL(for: category)),
-              let cached = try? Self.decoder.decode(CachedNews.self, from: data),
+        let url = fileURL(for: category)
+        guard let data = try? Data(contentsOf: url) else { return nil }
+        guard let cached = try? Self.decoder.decode(CachedNews.self, from: data),
               now.timeIntervalSince(cached.fetchedAt) < CacheLimits.maxAge else {
+            try? FileManager.default.removeItem(at: url)
             return nil
         }
         return cached
+    }
+
+    /// Deletes every expired or unreadable cache file, including those of categories no widget
+    /// shows any more (their files would otherwise never be overwritten). Returns how many were removed.
+    @discardableResult
+    public func removeExpired(now: Date = Date()) -> Int {
+        let files = (try? FileManager.default.contentsOfDirectory(at: directory, includingPropertiesForKeys: nil)) ?? []
+        var removed = 0
+        for url in files where url.lastPathComponent.hasPrefix("news-") && url.pathExtension == "json" {
+            let cached = (try? Data(contentsOf: url)).flatMap { try? Self.decoder.decode(CachedNews.self, from: $0) }
+            if let cached, now.timeIntervalSince(cached.fetchedAt) < CacheLimits.maxAge {
+                continue
+            }
+            if (try? FileManager.default.removeItem(at: url)) != nil {
+                removed += 1
+            }
+        }
+        return removed
     }
 
     /// Writes the cache for `category` and returns the number of bytes written.
