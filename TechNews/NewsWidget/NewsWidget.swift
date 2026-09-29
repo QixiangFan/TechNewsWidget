@@ -1,48 +1,41 @@
+import NewsKit
 import SwiftUI
 import WidgetKit
-
-// Placeholder widget used to check that the extension is embedded, signed and shows up
-// in the widget gallery. Real headlines and per-widget configuration come next.
-
-struct PlaceholderEntry: TimelineEntry {
-    let date: Date
-}
-
-struct PlaceholderProvider: TimelineProvider {
-    func placeholder(in context: Context) -> PlaceholderEntry {
-        PlaceholderEntry(date: Date())
-    }
-
-    func getSnapshot(in context: Context, completion: @escaping (PlaceholderEntry) -> Void) {
-        completion(PlaceholderEntry(date: Date()))
-    }
-
-    func getTimeline(in context: Context, completion: @escaping (Timeline<PlaceholderEntry>) -> Void) {
-        completion(Timeline(entries: [PlaceholderEntry(date: Date())], policy: .never))
-    }
-}
 
 struct NewsWidget: Widget {
     let kind = "NewsWidget"
 
     var body: some WidgetConfiguration {
-        StaticConfiguration(kind: kind, provider: PlaceholderProvider()) { entry in
-            VStack(spacing: 4) {
-                Text("TechNews")
-                    .font(.headline)
-                Text(entry.date, style: .time)
-                    .font(.caption)
-                    .foregroundStyle(.secondary)
-            }
-            .containerBackground(.fill.tertiary, for: .widget)
+        AppIntentConfiguration(kind: kind, intent: SelectCategoryIntent.self, provider: NewsProvider()) { entry in
+            NewsWidgetView(entry: entry)
+                .containerBackground(.fill.tertiary, for: .widget)
         }
-        .configurationDisplayName("TechNews")
-        .description("Latest tech headlines.")
+        .configurationDisplayName("Tech Headlines")
+        .description("Latest headlines from tech media, Hacker News and GitHub.")
+        .supportedFamilies([.systemSmall, .systemMedium, .systemLarge, .systemExtraLarge])
     }
 }
 
-#Preview(as: .systemSmall) {
+#Preview("Small", as: .systemSmall) {
     NewsWidget()
 } timeline: {
-    PlaceholderEntry(date: .now)
+    NewsEntry.sample(for: .chinese, family: .systemSmall, redacted: false)
+}
+
+#Preview("Medium", as: .systemMedium) {
+    NewsWidget()
+} timeline: {
+    NewsEntry.sample(for: .all, family: .systemMedium, redacted: false)
+}
+
+#Preview("Large", as: .systemLarge) {
+    NewsWidget()
+} timeline: {
+    NewsEntry.sample(for: .github, family: .systemLarge, redacted: false)
+}
+
+#Preview("Extra Large", as: .systemExtraLarge) {
+    NewsWidget()
+} timeline: {
+    NewsEntry.sample(for: .all, family: .systemExtraLarge, redacted: false)
 }

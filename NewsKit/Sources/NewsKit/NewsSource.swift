@@ -7,17 +7,6 @@ public enum NewsCategory: String, CaseIterable, Codable, Sendable {
     case english
     case hackerNews
     case github
-
-    /// English display name. The app and widget localize this through their String Catalogs.
-    public var title: String {
-        switch self {
-        case .all: "All"
-        case .chinese: "Chinese Media"
-        case .english: "English Media"
-        case .hackerNews: "Hacker News"
-        case .github: "GitHub Trending"
-        }
-    }
 }
 
 public struct NewsSource: Hashable, Sendable {

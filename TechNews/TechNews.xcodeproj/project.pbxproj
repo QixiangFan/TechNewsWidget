@@ -65,6 +65,11 @@
 			path = NewsWidget;
 			sourceTree = "<group>";
 		};
+		F00000000000000000000013 /* Shared */ = {
+			isa = PBXFileSystemSynchronizedRootGroup;
+			path = Shared;
+			sourceTree = "<group>";
+		};
 /* End PBXFileSystemSynchronizedRootGroup section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -92,6 +97,7 @@
 			children = (
 				F00000000000000000000010 /* TechNews */,
 				F00000000000000000000011 /* NewsWidget */,
+				F00000000000000000000013 /* Shared */,
 				F00000000000000000000003 /* Products */,
 			);
 			sourceTree = "<group>";
@@ -124,6 +130,7 @@
 			);
 			fileSystemSynchronizedGroups = (
 				F00000000000000000000010 /* TechNews */,
+				F00000000000000000000013 /* Shared */,
 			);
 			name = TechNews;
 			packageProductDependencies = (
@@ -147,6 +154,7 @@
 			);
 			fileSystemSynchronizedGroups = (
 				F00000000000000000000011 /* NewsWidget */,
+				F00000000000000000000013 /* Shared */,
 			);
 			name = NewsWidget;
 			packageProductDependencies = (
