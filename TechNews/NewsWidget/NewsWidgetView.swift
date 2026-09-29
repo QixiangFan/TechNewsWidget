@@ -27,7 +27,6 @@ struct NewsWidgetView: View {
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
         .redacted(reason: entry.isPlaceholder ? .placeholder : [])
-        .widgetURL(isSmall ? entry.items.first?.url : nil)
     }
 
     // MARK: Header
@@ -75,7 +74,7 @@ struct NewsWidgetView: View {
     }
 
     private func row(_ item: NewsItem) -> some View {
-        Link(destination: item.url) {
+        Button(intent: OpenArticleIntent(url: item.url, category: entry.category)) {
             VStack(alignment: .leading, spacing: 1) {
                 Text(title(for: item))
                     .font(titleFont)
@@ -87,7 +86,10 @@ struct NewsWidgetView: View {
                         .lineLimit(1)
                 }
             }
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .contentShape(Rectangle())
         }
+        .buttonStyle(.plain)
     }
 
     /// Prefixes the outlet's name in its color when the category mixes several sources.

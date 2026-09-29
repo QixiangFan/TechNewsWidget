@@ -81,6 +81,16 @@
         }
       }
     },
+    "Link" : {
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "链接"
+          }
+        }
+      }
+    },
     "Next Page" : {
       "localizations" : {
         "zh-Hans" : {
@@ -97,6 +107,16 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "暂时没有资讯"
+          }
+        }
+      }
+    },
+    "Open Article" : {
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "打开文章"
           }
         }
       }

@@ -6,7 +6,7 @@
 
 A native macOS desktop widget (WidgetKit) that shows the latest tech headlines from Chinese and English tech media, Hacker News and GitHub Trending. Headlines only, no AI summaries, and a very small on-disk cache.
 
-> **Status: work in progress.** The data layer (`NewsKit`) is done and tested. The macOS app and widget are next.
+> **Status: work in progress.** The data layer (`NewsKit`), the macOS app and the configurable widget work. Build instructions and screenshots are coming.
 
 ### Sources
 
@@ -50,7 +50,7 @@ swift test                  # offline parser and cache tests
 
 一个 macOS 原生桌面小组件（WidgetKit），显示最新的科技资讯标题。来源包括中文科技媒体、英文科技媒体、Hacker News 和 GitHub Trending。只显示标题，不做 AI 摘要，本地缓存非常小。
 
-> **状态：开发中。** 数据层（`NewsKit`）已经完成并通过测试，macOS App 和小组件正在开发。
+> **状态：开发中。** 数据层（`NewsKit`）、macOS App 和可配置的小组件都已可用，编译说明和截图稍后补充。
 
 ### 资讯来源
 

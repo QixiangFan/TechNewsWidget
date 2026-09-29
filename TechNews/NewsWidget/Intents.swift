@@ -1,4 +1,5 @@
 import AppIntents
+import AppKit
 import NewsKit
 
 /// Category choices shown when the user edits a widget.
@@ -53,6 +54,35 @@ struct NextPageIntent: AppIntent {
 
     func perform() async throws -> some IntentResult {
         PageStore.advance(category.newsCategory)
+        return .result()
+    }
+}
+
+/// Tapping a headline. A plain `Link` in a macOS widget activates the containing app first,
+/// so the widget extension opens the article in the default browser itself.
+struct OpenArticleIntent: AppIntent {
+    static var title: LocalizedStringResource { "Open Article" }
+    static var isDiscoverable: Bool { false }
+
+    @Parameter(title: "Link")
+    var url: URL
+
+    @Parameter(title: "Category")
+    var category: CategoryOption
+
+    init() {}
+
+    init(url: URL, category: NewsCategory) {
+        self.url = url
+        self.category = CategoryOption(category)
+    }
+
+    func perform() async throws -> some IntentResult {
+        // WidgetKit reloads the widget after any button; keep the current page and skip downloading.
+        PageStore.reuseCacheOnce(category.newsCategory)
+        await MainActor.run {
+            _ = NSWorkspace.shared.open(url)
+        }
         return .result()
     }
 }

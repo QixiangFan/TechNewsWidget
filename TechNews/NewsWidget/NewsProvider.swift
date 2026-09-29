@@ -75,11 +75,11 @@ struct NewsProvider: AppIntentTimelineProvider {
         return (fresh, false)
     }
 
-    /// Page flips and bursts of reloads reuse the cache; everything else downloads.
+    /// Button taps and bursts of reloads reuse the cache; everything else downloads.
     private func shouldDownload(_ category: NewsCategory, cached: CachedNews?, now: Date) -> Bool {
-        let pageFlipped = PageStore.consumePageFlip(for: category)
+        let reuseCache = PageStore.consumeReuseCache(for: category)
         guard let cached else { return true }
-        if pageFlipped { return false }
+        if reuseCache { return false }
         return now.timeIntervalSince(cached.fetchedAt) >= Self.minimumFetchInterval
     }
 
@@ -122,16 +122,22 @@ enum PageStore {
 
     static func advance(_ category: NewsCategory) {
         defaults.set(page(for: category) + 1, forKey: pageKey(category))
-        defaults.set(true, forKey: flipKey(category))
+        reuseCacheOnce(category)
     }
 
-    /// True once after `advance`, telling the provider to reuse the cache instead of downloading.
-    static func consumePageFlip(for category: NewsCategory) -> Bool {
-        let flipped = defaults.bool(forKey: flipKey(category))
-        if flipped {
-            defaults.removeObject(forKey: flipKey(category))
+    /// Makes the next reload show cached headlines instead of downloading, so a button
+    /// tap never replaces the list (and resets the page) under the user's cursor.
+    static func reuseCacheOnce(_ category: NewsCategory) {
+        defaults.set(true, forKey: reuseKey(category))
+    }
+
+    /// True once after `reuseCacheOnce`.
+    static func consumeReuseCache(for category: NewsCategory) -> Bool {
+        let reuse = defaults.bool(forKey: reuseKey(category))
+        if reuse {
+            defaults.removeObject(forKey: reuseKey(category))
         }
-        return flipped
+        return reuse
     }
 
     /// Back to the first page, used after new headlines arrive.
@@ -140,7 +146,7 @@ enum PageStore {
     }
 
     private static func pageKey(_ category: NewsCategory) -> String { "page.\(category.rawValue)" }
-    private static func flipKey(_ category: NewsCategory) -> String { "pageFlip.\(category.rawValue)" }
+    private static func reuseKey(_ category: NewsCategory) -> String { "reuseCache.\(category.rawValue)" }
 }
 
 extension NewsEntry {
