@@ -6,8 +6,10 @@ import WidgetKit
 
 /// "Headlines & Images": pictures, summaries and, on the large sizes, a lead story.
 ///
-/// Every size is laid out for the macOS widget sizes (content area after the 14 pt margins):
-/// small 142 × 142, medium 336 × 142, large 336 × 354, extra large 736 × 354.
+/// Every size is laid out for the macOS widget sizes: small 164 × 164 pt, medium 344 × 164,
+/// large 344 × 344, extra large 704 × 344. After the 14 pt margins and the header (20 pt plus
+/// 10 pt of spacing), the stories get 316 × 106 on the medium size and 286 pt of height on the
+/// large ones. Rows have fixed heights that add up to that; the lead story's picture takes what is left.
 struct RichLayout: View {
     let entry: NewsEntry
     let context: WidgetContext
@@ -22,23 +24,23 @@ struct RichLayout: View {
         case .systemLarge:
             VStack(alignment: .leading, spacing: 10) {
                 if let lead = stories.first {
-                    LeadStory(story: lead, entry: entry, context: context, imageHeight: 142, titleSize: 14,
-                              summaryLines: 2)
+                    // Three rows leave the lead about 124 pt: enough for its photo and title, not a summary.
+                    LeadStory(story: lead, entry: entry, context: context, titleSize: 14, summaryLines: 0)
                 }
                 Hairline()
                 rows(stories.dropFirst(), artwork: CGSize(width: 56, height: 42), titleSize: 11.5, spacing: 8)
             }
         case .systemExtraLarge:
+            // Two equal columns, each about as wide as the large size.
             HStack(alignment: .top, spacing: 18) {
                 if let lead = stories.first {
-                    LeadStory(story: lead, entry: entry, context: context, imageHeight: nil, titleSize: 17,
-                              summaryLines: 4)
-                        .frame(width: 336)
+                    LeadStory(story: lead, entry: entry, context: context, titleSize: 17, summaryLines: 4)
+                        .frame(maxWidth: .infinity)
                 }
-                rows(stories.dropFirst(), artwork: CGSize(width: 96, height: 72), titleSize: 12, spacing: 13)
+                rows(stories.dropFirst(), artwork: CGSize(width: 85, height: 64), titleSize: 12, spacing: 10)
             }
         default:
-            rows(stories[...], artwork: CGSize(width: 72, height: 54), titleSize: 11.5, spacing: 8)
+            rows(stories[...], artwork: CGSize(width: 65, height: 49), titleSize: 11.5, spacing: 8)
         }
     }
 
@@ -146,14 +148,14 @@ struct SmallStory: View {
 }
 
 /// The large sizes' lead story. In full color its title sits on the photo, like a magazine cover;
-/// in the tinted and vibrant appearances the picture shrinks to a banner above the text.
+/// in the tinted and vibrant appearances the picture becomes a banner above the text.
+/// Either way the picture fills the height the text leaves free.
 struct LeadStory: View {
     let story: Story
     let entry: NewsEntry
     let context: WidgetContext
-    /// Height of the photo; nil lets it fill the space the text leaves free.
-    let imageHeight: CGFloat?
     let titleSize: CGFloat
+    /// Lines of summary under the picture; 0 for none.
     let summaryLines: Int
 
     private var item: NewsItem { story.item }
@@ -163,18 +165,16 @@ struct LeadStory: View {
             VStack(alignment: .leading, spacing: 7) {
                 if context.isFullColor, item.artwork == .photo, let photo {
                     cover(photo)
-                        .frame(height: imageHeight)
-                        .frame(maxHeight: imageHeight == nil ? .infinity : nil)
+                        .frame(maxHeight: .infinity)
                 } else {
                     WidgetArtwork(item: item, data: entry.thumbnails[item.id], rank: story.rank, cornerRadius: 10)
-                        .frame(height: imageHeight.map { ($0 * 0.62).rounded() })
-                        .frame(maxHeight: imageHeight == nil ? .infinity : nil)
+                        .frame(maxHeight: .infinity)
                     VStack(alignment: .leading, spacing: 3) {
                         Kicker(item: item, showsSource: entry.category.mixesSources)
                         title.foregroundStyle(.primary)
                     }
                 }
-                if let summary = item.summary {
+                if summaryLines > 0, let summary = item.summary {
                     Text(summary)
                         .font(.system(size: titleSize - 3))
                         .foregroundStyle(.secondary)

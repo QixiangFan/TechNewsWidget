@@ -21,7 +21,7 @@ struct CompactLayout: View {
     }
 
     private func column(_ items: [NewsItem]) -> some View {
-        VStack(alignment: .leading, spacing: context.isSmall ? 7 : 6) {
+        VStack(alignment: .leading, spacing: rowSpacing) {
             ForEach(items) { item in
                 row(item)
             }
@@ -62,6 +62,16 @@ struct CompactLayout: View {
     /// size, which shows more single-line titles instead.
     private var showsDetail: Bool {
         !entry.category.mixesSources && context.family != .systemMedium
+    }
+
+    /// Chosen so a full page fits under the header: six one-line rows (14 pt each) in the medium
+    /// size's 106 pt, eight rows of up to 28 pt per column in the large sizes' 286 pt.
+    private var rowSpacing: CGFloat {
+        switch context.family {
+        case .systemSmall: 7
+        case .systemMedium: 4
+        default: 8
+        }
     }
 
     private var titleFont: Font {

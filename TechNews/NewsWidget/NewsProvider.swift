@@ -133,7 +133,7 @@ struct NewsProvider: AppIntentTimelineProvider {
 }
 
 extension WidgetFamily {
-    /// Stories that fit on one page of each widget size.
+    /// Stories that fit on one page of each widget size (see `RichLayout` and `CompactLayout`).
     func headlinesPerPage(style: StyleOption) -> Int {
         switch (style, self) {
         case (.rich, .systemSmall): 1
@@ -142,8 +142,8 @@ extension WidgetFamily {
         case (.rich, .systemExtraLarge): 5
         case (.headlines, .systemSmall): 3
         case (.headlines, .systemMedium): 6
-        case (.headlines, .systemLarge): 9
-        case (.headlines, .systemExtraLarge): 18
+        case (.headlines, .systemLarge): 8
+        case (.headlines, .systemExtraLarge): 16
         default: 5
         }
     }

@@ -67,6 +67,10 @@ struct WidgetContent: View {
                 Spacer(minLength: 0)
             } else {
                 page
+                    // Exactly the height left under the header. Without the zero minimum, a page that
+                    // runs long would make the content taller than the widget, which WidgetKit then
+                    // centers, pushing the header past the top edge.
+                    .frame(maxWidth: .infinity, minHeight: 0, maxHeight: .infinity, alignment: .topLeading)
                     .id(entry.pageID)
                     .transition(.push(from: .trailing))
                     .invalidatableContent()

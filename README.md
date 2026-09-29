@@ -12,8 +12,8 @@ A native macOS desktop widget (WidgetKit) and companion app for the latest tech 
 
 The widget comes in all four desktop sizes. Edit a widget to choose its category and its style:
 
-- **Headlines & Images** (default): pictures, summaries and a lead story. The small size shows one story over its photo, the medium size two stories, the large size a lead story and three more, and the extra-large size a lead story and four more, each with its summary.
-- **Headlines Only**: as many titles as fit (3, 6, 9 or 18 per page).
+- **Headlines & Images** (default): pictures, summaries and a lead story. The small size shows one story over its photo, the medium size two stories, the large size a lead story and three more, and the extra-large size a lead story and four more. Summaries appear wherever there is room for them.
+- **Headlines Only**: as many titles as fit (3, 6, 8 or 16 per page).
 
 The › button in the header shows the next page, and clicking a story opens it in your browser. Stories without a picture show the outlet's monogram, the Hacker News category shows each story's rank, and GitHub stories show the owner's avatar. When macOS draws widgets in its monochrome or tinted style (for example while another app is in front), titles move off the photos so they stay legible.
 
@@ -74,8 +74,8 @@ swift test                             # offline parser, cache and thumbnail tes
 
 支持桌面上的全部四种尺寸。编辑小组件时可以选择分类和样式：
 
-- **图文**（默认）：图片、摘要和头条。小号显示一条资讯，标题叠在照片上；中号显示两条；大号显示一条头条和另外三条；超大显示一条头条和另外四条，每条都带摘要。
-- **仅标题**：放下尽可能多的标题（每页 3、6、9 或 18 条）。
+- **图文**（默认）：图片、摘要和头条。小号显示一条资讯，标题叠在照片上；中号显示两条；大号显示一条头条和另外三条；超大显示一条头条和另外四条。空间允许时，资讯下方会显示摘要。
+- **仅标题**：放下尽可能多的标题（每页 3、6、8 或 16 条）。
 
 点标题栏里的 › 翻到下一页，点资讯会在浏览器中打开。没有配图的资讯显示媒体的字标，Hacker News 分类显示每条的排名，GitHub 的资讯显示作者头像。macOS 用单色或着色样式显示小组件时（例如正在使用别的 App），标题会移到照片外面，保证看得清。
 
