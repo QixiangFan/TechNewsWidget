@@ -21,6 +21,16 @@
         }
       }
     },
+    "Chinese" : {
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "中文"
+          }
+        }
+      }
+    },
     "Chinese Media" : {
       "localizations" : {
         "zh-Hans" : {
@@ -41,12 +51,32 @@
         }
       }
     },
+    "English" : {
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "英文"
+          }
+        }
+      }
+    },
     "English Media" : {
       "localizations" : {
         "zh-Hans" : {
           "stringUnit" : {
             "state" : "translated",
             "value" : "英文媒体"
+          }
+        }
+      }
+    },
+    "GitHub" : {
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "GitHub"
           }
         }
       }
@@ -71,12 +101,32 @@
         }
       }
     },
-    "Latest headlines from tech media, Hacker News and GitHub." : {
+    "Headlines & Images" : {
       "localizations" : {
         "zh-Hans" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "来自科技媒体、Hacker News 和 GitHub 的最新资讯。"
+            "value" : "图文"
+          }
+        }
+      }
+    },
+    "Headlines Only" : {
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "仅标题"
+          }
+        }
+      }
+    },
+    "Headlines, summaries and pictures from tech media, Hacker News and GitHub." : {
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "来自科技媒体、Hacker News 和 GitHub 的标题、摘要和图片。"
           }
         }
       }
@@ -121,12 +171,32 @@
         }
       }
     },
+    "Page %lld of %lld" : {
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "第 %1$lld 页，共 %2$lld 页"
+          }
+        }
+      }
+    },
     "Select Category" : {
       "localizations" : {
         "zh-Hans" : {
           "stringUnit" : {
             "state" : "translated",
             "value" : "选择分类"
+          }
+        }
+      }
+    },
+    "Style" : {
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "样式"
           }
         }
       }

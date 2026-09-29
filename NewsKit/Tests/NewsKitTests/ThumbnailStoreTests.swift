@@ -57,6 +57,15 @@ private func item(_ name: String) -> NewsItem {
             == "https://cdn.arstechnica.net/wp-content/uploads/2026/09/Getty-1-384x216.jpg")
     }
 
+    @Test func asksForLargerCopiesForTheMainWindow() {
+        let verge = URL(string: "https://platform.theverge.com/a.webp?quality=90")!
+        #expect(ThumbnailStore.downloadURL(for: verge, width: 1200).absoluteString
+            == "https://platform.theverge.com/a.webp?quality=90&w=1200")
+        // Ars only keeps a small pre-sized copy, so larger requests use the original.
+        let ars = URL(string: "https://cdn.arstechnica.net/wp-content/uploads/2026/09/Getty-1152x648.jpg")!
+        #expect(ThumbnailStore.downloadURL(for: ars, width: 1200) == ars)
+    }
+
     @Test func leavesOtherHostsAloneButUpgradesToHTTPS() {
         #expect(resized("https://cdn.arstechnica.net/wp-content/uploads/2026/09/header-1152x648-1790642597.jpg")
             == "https://cdn.arstechnica.net/wp-content/uploads/2026/09/header-1152x648-1790642597.jpg")
@@ -118,6 +127,16 @@ private func item(_ name: String) -> NewsItem {
 
         let thumbnails = await store.thumbnails(for: [saved, noImage])
         #expect(thumbnails == [saved.id: Data("jpeg".utf8)])
+    }
+
+    @Test func keepsLeadAndRowSizesApart() {
+        let store = temporaryStore()
+        let lead = item("lead")
+        store.save(Data("small".utf8), for: lead.imageURL!)
+        store.save(Data("large".utf8), for: lead.imageURL!, maxPixelSize: CacheLimits.leadThumbnailMaxPixelSize)
+
+        #expect(store.cachedThumbnails(for: [lead])[lead.id] == Data("small".utf8))
+        #expect(store.cachedThumbnails(for: [lead], leadItemIDs: [lead.id])[lead.id] == Data("large".utf8))
     }
 
     @Test func deletesTheOldestThumbnailsBeyondTheSizeCap() {

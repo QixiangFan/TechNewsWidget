@@ -14,6 +14,8 @@ public enum CacheLimits {
     public static let maxAge: TimeInterval = 3 * 24 * 60 * 60
     /// Thumbnails are JPEGs whose longer side is at most this many pixels (typically 5–20 KB each).
     public static let thumbnailMaxPixelSize = 320
+    /// The lead story of the large widgets is shown about 330 points wide, so it gets a sharper copy (30–60 KB).
+    public static let leadThumbnailMaxPixelSize = 640
     /// Hard cap for all thumbnails together; the oldest are deleted first.
     public static let maxThumbnailBytes = 300 * 1024
 }

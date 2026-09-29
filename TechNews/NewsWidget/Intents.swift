@@ -28,13 +28,30 @@ enum CategoryOption: String, AppEnum {
     }
 }
 
-/// Per-widget configuration: which category of headlines to show.
+/// How much of each story the widget shows.
+enum StyleOption: String, AppEnum {
+    /// Pictures, summaries and a lead story; fewer stories per page.
+    case rich
+    /// Titles only, as many as fit.
+    case headlines
+
+    static var typeDisplayRepresentation = TypeDisplayRepresentation(name: "Style")
+    static var caseDisplayRepresentations: [Self: DisplayRepresentation] = [
+        .rich: "Headlines & Images",
+        .headlines: "Headlines Only",
+    ]
+}
+
+/// Per-widget configuration: which category of headlines to show, and how.
 struct SelectCategoryIntent: WidgetConfigurationIntent {
     static var title: LocalizedStringResource { "Select Category" }
     static var description: IntentDescription { "Choose which headlines this widget shows." }
 
     @Parameter(title: "Category", default: .all)
     var category: CategoryOption
+
+    @Parameter(title: "Style", default: .rich)
+    var style: StyleOption
 }
 
 /// The "next page" button in the widget header. Runs inside the widget extension,

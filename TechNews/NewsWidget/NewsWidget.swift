@@ -8,34 +8,39 @@ struct NewsWidget: Widget {
     var body: some WidgetConfiguration {
         AppIntentConfiguration(kind: kind, intent: SelectCategoryIntent.self, provider: NewsProvider()) { entry in
             NewsWidgetView(entry: entry)
-                .containerBackground(.fill.tertiary, for: .widget)
         }
         .configurationDisplayName("Tech Headlines")
-        .description("Latest headlines from tech media, Hacker News and GitHub.")
+        .description("Headlines, summaries and pictures from tech media, Hacker News and GitHub.")
         .supportedFamilies([.systemSmall, .systemMedium, .systemLarge, .systemExtraLarge])
+        // The layouts apply their own margins and let the small widget's photo fill the edges.
+        .contentMarginsDisabled()
     }
 }
 
 #Preview("Small", as: .systemSmall) {
     NewsWidget()
 } timeline: {
-    NewsEntry.sample(for: .chinese, family: .systemSmall, redacted: false)
+    NewsEntry.sample(for: .chinese, style: .rich, family: .systemSmall, redacted: false)
+    NewsEntry.sample(for: .chinese, style: .headlines, family: .systemSmall, redacted: false)
 }
 
 #Preview("Medium", as: .systemMedium) {
     NewsWidget()
 } timeline: {
-    NewsEntry.sample(for: .all, family: .systemMedium, redacted: false)
+    NewsEntry.sample(for: .all, style: .rich, family: .systemMedium, redacted: false)
+    NewsEntry.sample(for: .all, style: .headlines, family: .systemMedium, redacted: false)
 }
 
 #Preview("Large", as: .systemLarge) {
     NewsWidget()
 } timeline: {
-    NewsEntry.sample(for: .github, family: .systemLarge, redacted: false)
+    NewsEntry.sample(for: .all, style: .rich, family: .systemLarge, redacted: false)
+    NewsEntry.sample(for: .github, style: .headlines, family: .systemLarge, redacted: false)
 }
 
 #Preview("Extra Large", as: .systemExtraLarge) {
     NewsWidget()
 } timeline: {
-    NewsEntry.sample(for: .all, family: .systemExtraLarge, redacted: false)
+    NewsEntry.sample(for: .english, style: .rich, family: .systemExtraLarge, redacted: false)
+    NewsEntry.sample(for: .all, style: .headlines, family: .systemExtraLarge, redacted: false)
 }
