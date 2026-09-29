@@ -1,16 +1,21 @@
 import Foundation
 
 /// All size limits for the on-disk cache, in one place.
-/// With these values a category file is ~20 KB and the whole cache stays under 100 KB.
+/// With these values the headline files total about 100 KB and the thumbnails at most 300 KB.
 public enum CacheLimits {
     /// Items kept per category: three pages of the extra-large widget.
     public static let maxItemsPerCategory = 60
     public static let maxTitleLength = 120
     public static let maxDetailLength = 80
+    public static let maxSummaryLength = 100
     /// Hard cap per category file; items are dropped from the end until the file fits.
     public static let maxFileBytes = 64 * 1024
-    /// Cached headlines older than this are not shown at all.
+    /// Cached headlines and thumbnails older than this are deleted.
     public static let maxAge: TimeInterval = 3 * 24 * 60 * 60
+    /// Thumbnails are JPEGs whose longer side is at most this many pixels (typically 5–20 KB each).
+    public static let thumbnailMaxPixelSize = 320
+    /// Hard cap for all thumbnails together; the oldest are deleted first.
+    public static let maxThumbnailBytes = 300 * 1024
 }
 
 public struct CachedNews: Codable, Sendable {
@@ -25,13 +30,14 @@ public struct CachedNews: Codable, Sendable {
 
 /// Stores the last successful fetch of each category as one small JSON file, overwritten on every save.
 public struct NewsCache: Sendable {
+    /// `<Caches>/TechNews`, which inside the sandboxed widget is its own container.
+    public static let defaultDirectory = FileManager.default.urls(for: .cachesDirectory, in: .userDomainMask)[0]
+        .appendingPathComponent("TechNews", isDirectory: true)
+
     private let directory: URL
 
-    /// Defaults to `<Caches>/TechNews`, which inside the sandboxed widget is its own container.
     public init(directory: URL? = nil) {
-        self.directory = directory
-            ?? FileManager.default.urls(for: .cachesDirectory, in: .userDomainMask)[0]
-                .appendingPathComponent("TechNews", isDirectory: true)
+        self.directory = directory ?? Self.defaultDirectory
     }
 
     /// Returns the cached news, or nil if there is none or it is older than `CacheLimits.maxAge`.
@@ -92,6 +98,8 @@ public struct NewsCache: Sendable {
     private static let encoder: JSONEncoder = {
         let encoder = JSONEncoder()
         encoder.dateEncodingStrategy = .secondsSince1970
+        // Store "https://a/b" rather than "https:\/\/a\/b".
+        encoder.outputFormatting = .withoutEscapingSlashes
         return encoder
     }()
 

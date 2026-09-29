@@ -73,6 +73,15 @@ public struct NewsService: Sendable {
         switch source.kind {
         case .feed:
             items = try FeedParser.parse(try await data(from: source.url, sourceID: source.id), source: source)
+        case .wordpress:
+            let posts = try? WordPressFetcher.parse(try await data(from: source.url, sourceID: source.id), source: source)
+            if let posts, !posts.isEmpty {
+                items = posts
+            } else {
+                Self.logger.notice("WordPress API of \(source.id, privacy: .public) unavailable, using its RSS feed")
+                let feed = try await data(from: WordPressFetcher.feedURL(for: source.url), sourceID: source.id)
+                items = try FeedParser.parse(feed, source: source)
+            }
         case .hackerNews:
             items = try HackerNewsFetcher.parse(try await data(from: source.url, sourceID: source.id), source: source)
         case .githubTrending:

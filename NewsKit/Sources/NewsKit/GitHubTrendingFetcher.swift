@@ -23,14 +23,15 @@ enum GitHubTrendingFetcher {
                   let url = URL(string: "https://github.com/\(path)") else {
                 return nil
             }
-            let description = firstMatch(in: row, pattern: #"<p class="col-9[^"]*">([\s\S]*?)</p>"#)
             let language = firstMatch(in: row, pattern: #"itemprop="programmingLanguage">([^<]*)<"#)
             let starsToday = firstMatch(in: row, pattern: #"([\d,]+) stars? today"#)
             return NewsItem(
                 title: path,
                 url: url,
                 sourceID: source.id,
-                detail: detailLine(stars: starsToday.map { "+\($0)★" }, language: language, description: description)
+                detail: detailLine(stars: starsToday.map { "+\($0)★" }, language: language),
+                summary: firstMatch(in: row, pattern: #"<p class="col-9[^"]*">([\s\S]*?)</p>"#),
+                imageURL: avatarURL(forRepository: path)
             )
         }
     }
@@ -59,19 +60,27 @@ enum GitHubTrendingFetcher {
                 url: repo.html_url,
                 sourceID: source.id,
                 date: repo.created_at,
-                detail: detailLine(stars: "\(repo.stargazers_count)★", language: repo.language, description: repo.description)
+                detail: detailLine(stars: "\(repo.stargazers_count)★", language: repo.language),
+                summary: repo.description,
+                imageURL: avatarURL(forRepository: repo.full_name)
             )
         }
     }
 
     // MARK: Helpers
 
-    /// "+1,234★ · Swift · A short description", skipping missing parts.
-    private static func detailLine(stars: String?, language: String?, description: String?) -> String {
-        [stars, language, description]
+    /// "+1,234★ · Swift", skipping missing parts.
+    private static func detailLine(stars: String?, language: String?) -> String {
+        [stars, language]
             .compactMap { $0?.trimmingCharacters(in: .whitespacesAndNewlines) }
             .filter { !$0.isEmpty }
             .joined(separator: " · ")
+    }
+
+    /// The owner's avatar, 160 px square (a few KB).
+    private static func avatarURL(forRepository path: String) -> URL? {
+        guard let owner = path.split(separator: "/").first else { return nil }
+        return URL(string: "https://github.com/\(owner).png?size=160")
     }
 
     /// Returns capture group 1 of the first match.

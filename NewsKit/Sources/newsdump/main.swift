@@ -2,8 +2,9 @@ import Foundation
 import NewsKit
 
 // Usage:
-//   swift run newsdump            Summary of every source plus the cache size per category.
-//   swift run newsdump <source>   Every item from one source, e.g. `swift run newsdump hn`.
+//   swift run newsdump                          Summary of every source plus the cache size per category.
+//   swift run newsdump <source>                 Every item from one source, e.g. `swift run newsdump hn`.
+//   swift run newsdump <source> --thumbnails    Also downloads and shrinks each item's image, printing the sizes.
 
 let service = NewsService()
 let arguments = CommandLine.arguments.dropFirst()
@@ -13,15 +14,44 @@ if let sourceID = arguments.first {
         print("Unknown source '\(sourceID)'. Available: \(NewsSource.all.map(\.id).joined(separator: ", "))")
         exit(1)
     }
+    let items: [NewsItem]
     do {
-        for (index, item) in try await service.fetchItems(from: source).enumerated() {
-            print("\(index + 1). \(item.title)")
-            if let detail = item.detail { print("   \(detail)") }
-            print("   \(item.url.absoluteString)  \(item.date.map { "\($0)" } ?? "no date")")
-        }
+        items = try await service.fetchItems(from: source)
     } catch {
         print("Failed: \(error.localizedDescription)")
         exit(1)
+    }
+    for (index, item) in items.enumerated() {
+        print("\(index + 1). \(item.title)")
+        if let detail = item.detail { print("   \(detail)") }
+        if let summary = item.summary { print("   ≡ \(summary)") }
+        print("   \(item.url.absoluteString)  \(item.date.map { "\($0)" } ?? "no date")")
+        if let imageURL = item.imageURL { print("   🖼 \(imageURL.absoluteString)") }
+    }
+
+    if arguments.contains("--thumbnails") {
+        // A throwaway folder, so the widget's own cache is never touched.
+        let directory = FileManager.default.temporaryDirectory
+            .appendingPathComponent("newsdump-thumbnails-\(UUID().uuidString)", isDirectory: true)
+        let store = ThumbnailStore(directory: directory)
+        print("\nThumbnails (downloaded → saved):")
+        var downloaded = 0, saved = 0, failed = 0
+        for (index, item) in items.enumerated() {
+            guard let imageURL = item.imageURL else { continue }
+            if let result = await store.download(imageURL) {
+                downloaded += result.downloadedBytes
+                saved += result.thumbnail.count
+                print(String(format: "%3d. %8.1f KB → %5.1f KB  ", index + 1,
+                             Double(result.downloadedBytes) / 1024, Double(result.thumbnail.count) / 1024)
+                      + result.url.absoluteString)
+            } else {
+                failed += 1
+                print(String(format: "%3d. failed                    ", index + 1) + imageURL.absoluteString)
+            }
+        }
+        print(String(format: "Total %.1f KB downloaded, %.1f KB saved, %d failed", Double(downloaded) / 1024,
+                     Double(saved) / 1024, failed))
+        try? FileManager.default.removeItem(at: directory)
     }
     exit(0)
 }
@@ -53,9 +83,13 @@ for source in NewsSource.all {
     case let .success(items):
         itemsBySource[source.id] = items
         let dated = items.filter { $0.date != nil }.count
-        print("✅ \(source.name) [\(source.id)] \(items.count) items, \(dated) dated, \(timing)")
+        let summarized = items.filter { $0.summary != nil }.count
+        let illustrated = items.filter { $0.imageURL != nil }.count
+        print("✅ \(source.name) [\(source.id)] \(items.count) items: \(dated) dated, \(summarized) with summary, "
+              + "\(illustrated) with image, \(timing)")
         for item in items.prefix(3) {
             print("   · \(item.title)")
+            if let summary = item.summary { print("     ≡ \(summary)") }
         }
     case let .failure(error):
         print("❌ \(source.name) [\(source.id)] \(timing): \(error.localizedDescription)")

@@ -15,7 +15,7 @@ private let feedSource = NewsSource(id: "test", name: "Test", category: .english
             <title><![CDATA[ Apple &amp; Google  announce
               something ]]></title>
             <link> https://example.com/a </link>
-            <description><![CDATA[<p>Body is ignored</p>]]></description>
+            <description><![CDATA[<p>The <b>opening</b> paragraph.</p>]]></description>
             <pubDate>Tue, 29 Sep 2026 11:28:25 +0800</pubDate>
           </item>
           <item>
@@ -30,7 +30,10 @@ private let feedSource = NewsSource(id: "test", name: "Test", category: .english
         #expect(items[0].title == "Apple & Google announce something")
         #expect(items[0].url.absoluteString == "https://example.com/a")
         #expect(items[0].date == Date(timeIntervalSince1970: 1_790_652_505))
+        #expect(items[0].summary == "The opening paragraph.")
         #expect(items[1].date == Date(timeIntervalSince1970: 1_790_657_607))
+        #expect(items[1].summary == nil)
+        #expect(items[1].imageURL == nil)
     }
 
     @Test func parsesAtomEntriesUsingAlternateLink() throws {
@@ -67,14 +70,18 @@ private let feedSource = NewsSource(id: "test", name: "Test", category: .english
     @Test func parsesHackerNewsAndLinksTextPostsToDiscussion() throws {
         let json = """
         {"hits": [
-          {"objectID": "1", "title": "Show HN: A thing", "url": null, "points": 12, "num_comments": 3, "created_at_i": 1790618291},
-          {"objectID": "2", "title": "Link post", "url": "https://example.com/x", "points": 5, "num_comments": 0}
+          {"objectID": "1", "title": "Show HN: A thing", "url": null, "story_text": "<p>I built a thing.<p>It does stuff.",
+           "points": 12, "num_comments": 3, "created_at_i": 1790618291},
+          {"objectID": "2", "title": "Link post", "url": "https://www.example.com/x", "points": 5, "num_comments": 0}
         ]}
         """
         let source = NewsSource.named("hn")!
         let items = try HackerNewsFetcher.parse(Data(json.utf8), source: source)
-        #expect(items.map(\.url.absoluteString) == ["https://news.ycombinator.com/item?id=1", "https://example.com/x"])
+        #expect(items.map(\.url.absoluteString) == ["https://news.ycombinator.com/item?id=1", "https://www.example.com/x"])
         #expect(items[0].detail == "▲12 · 💬3")
+        #expect(items[0].summary == "I built a thing. It does stuff.")
+        #expect(items[1].detail == "example.com · ▲5 · 💬0")
+        #expect(items[1].summary == nil)
         #expect(items[1].date == nil)
     }
 
@@ -97,8 +104,11 @@ private let feedSource = NewsSource(id: "test", name: "Test", category: .english
         let items = GitHubTrendingFetcher.parseTrendingPage(Data(html.utf8), source: NewsSource.named("github")!)
         #expect(items.map(\.title) == ["owner/repo", "other/project"])
         #expect(items[0].url.absoluteString == "https://github.com/owner/repo")
-        #expect(items[0].detail == "+1,234★ · Swift · A fast & local thing.")
+        #expect(items[0].detail == "+1,234★ · Swift")
+        #expect(items[0].summary == "A fast & local thing.")
+        #expect(items[0].imageURL?.absoluteString == "https://github.com/owner.png?size=160")
         #expect(items[1].detail == nil)
+        #expect(items[1].summary == nil)
     }
 
     @Test func parsesGitHubSearchFallback() throws {
@@ -109,7 +119,34 @@ private let feedSource = NewsSource(id: "test", name: "Test", category: .english
         let items = try GitHubTrendingFetcher.parseSearchResponse(Data(json.utf8), source: NewsSource.named("github")!)
         #expect(items.count == 1)
         #expect(items[0].detail == "42★ · Rust")
+        #expect(items[0].summary == nil)
+        #expect(items[0].imageURL?.absoluteString == "https://github.com/a.png?size=160")
         #expect(items[0].date != nil)
+    }
+
+    @Test func parsesWordPressPosts() throws {
+        let json = """
+        [{"date_gmt": "2026-09-29T17:45:51",
+          "link": "https://techcrunch.com/2026/09/29/office-suite/",
+          "title": {"rendered": "ChatGPT&#8217;s own office suite"},
+          "excerpt": {"rendered": "<p>OpenAI takes on Microsoft with its own [&hellip;]</p>\\n", "protected": false},
+          "jetpack_featured_media_url": "https://techcrunch.com/wp-content/uploads/2026/09/OpenAI.jpg"},
+         {"date_gmt": "2026-09-29T17:27:09", "link": "https://techcrunch.com/b/",
+          "title": {"rendered": "No image"}, "excerpt": {"rendered": ""}, "jetpack_featured_media_url": ""},
+         {"link": "https://techcrunch.com/c/", "title": {"rendered": ""}}]
+        """
+        let items = try WordPressFetcher.parse(Data(json.utf8), source: NewsSource.named("techcrunch")!)
+        #expect(items.map(\.title) == ["ChatGPT’s own office suite", "No image"])
+        #expect(items[0].date == Date(timeIntervalSince1970: 1_790_703_951))
+        #expect(items[0].summary == "OpenAI takes on Microsoft with its own…")
+        #expect(items[0].imageURL?.absoluteString == "https://techcrunch.com/wp-content/uploads/2026/09/OpenAI.jpg")
+        #expect(items[1].summary == nil)
+        #expect(items[1].imageURL == nil)
+    }
+
+    @Test func wordPressFallsBackToTheSiteFeed() {
+        let api = NewsSource.named("techcrunch")!.url
+        #expect(WordPressFetcher.feedURL(for: api).absoluteString == "https://techcrunch.com/feed/")
     }
 }
 

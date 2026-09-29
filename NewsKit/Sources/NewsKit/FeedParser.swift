@@ -1,7 +1,7 @@
 import Foundation
 
 /// Parses RSS 2.0, RSS 1.0 (RDF) and Atom feeds into `NewsItem`s.
-/// Only the title, link and date of each entry are read; everything else is skipped.
+/// Only the title, link, date, summary and lead image of each entry are read; everything else is skipped.
 final class FeedParser: NSObject, XMLParserDelegate {
     private let source: NewsSource
     private var items: [NewsItem] = []
@@ -10,10 +10,38 @@ final class FeedParser: NSObject, XMLParserDelegate {
     /// Depth of the `<item>` / `<entry>` currently being read, or nil when outside one.
     private var entryDepth: Int?
     private var text = ""
-    private var title: String?
-    private var link: String?
-    private var published: String?
-    private var updated: String?
+    private var entry = Entry()
+
+    /// What has been read so far from the current `<item>` / `<entry>`.
+    private struct Entry {
+        var title: String?
+        var link: String?
+        var published: String?
+        var updated: String?
+        /// `<description>` (RSS) or `<summary>` (Atom), usually HTML.
+        var summary: String?
+        /// The full article (`<content:encoded>` or Atom `<content>`). Only used to find the lead
+        /// image, or as the summary when there is no description; it is never stored.
+        var content: String?
+        /// `url` of `<media:content>` / `<media:thumbnail>`.
+        var mediaImage: String?
+        /// `url` of an image `<enclosure>`.
+        var enclosureImage: String?
+        /// Text of a plain `<image>` element (爱范儿).
+        var plainImage: String?
+
+        /// The first usable image, preferring ones the feed marks as the lead image
+        /// over the `<img>` tags in the summary or article.
+        func imageURL(relativeTo articleURL: URL) -> URL? {
+            for candidate in [mediaImage, enclosureImage, plainImage].compactMap({ $0 }) {
+                if let url = FeedImage.url(from: candidate, relativeTo: articleURL) { return url }
+            }
+            for html in [summary, content].compactMap({ $0 }) {
+                if let url = FeedImage.firstImage(inHTML: html, relativeTo: articleURL) { return url }
+            }
+            return nil
+        }
+    }
 
     private init(source: NewsSource) {
         self.source = source
@@ -40,16 +68,29 @@ final class FeedParser: NSObject, XMLParserDelegate {
         depth += 1
         if elementName == "item" || elementName == "entry" {
             entryDepth = depth
-            title = nil
-            link = nil
-            published = nil
-            updated = nil
+            entry = Entry()
         } else if let entryDepth, depth == entryDepth + 1 {
             text = ""
-            // Atom: <link rel="alternate" href="..."/>; a missing rel means alternate.
-            if elementName == "link", link == nil, let href = attributes["href"],
-               (attributes["rel"] ?? "alternate") == "alternate" {
-                link = href
+            switch elementName {
+            case "link":
+                // Atom: <link rel="alternate" href="..."/>; a missing rel means alternate.
+                if entry.link == nil, let href = attributes["href"], (attributes["rel"] ?? "alternate") == "alternate" {
+                    entry.link = href
+                }
+            case "media:content", "media:thumbnail":
+                // <media:thumbnail> has neither attribute and is always an image.
+                let isImage = attributes["medium"].map { $0 == "image" }
+                    ?? attributes["type"].map { $0.hasPrefix("image/") }
+                    ?? true
+                if entry.mediaImage == nil, isImage {
+                    entry.mediaImage = attributes["url"]
+                }
+            case "enclosure":
+                if entry.enclosureImage == nil, attributes["type"]?.hasPrefix("image/") == true {
+                    entry.enclosureImage = attributes["url"]
+                }
+            default:
+                break
             }
         }
     }
@@ -70,20 +111,64 @@ final class FeedParser: NSObject, XMLParserDelegate {
         if depth == entryDepth + 1 {
             let value = text.trimmingCharacters(in: .whitespacesAndNewlines)
             switch elementName {
-            case "title": title = value
-            case "link" where link == nil && !value.isEmpty: link = value
-            case "pubDate", "published", "dc:date": published = value
-            case "updated": updated = value
+            case "title": entry.title = value
+            case "link" where entry.link == nil && !value.isEmpty: entry.link = value
+            case "pubDate", "published", "dc:date": entry.published = value
+            case "updated": entry.updated = value
+            case "description", "summary":
+                if entry.summary == nil { entry.summary = value.nonEmpty }
+            case "content:encoded", "content":
+                if entry.content == nil { entry.content = value.nonEmpty }
+            case "image": entry.plainImage = value.nonEmpty
             default: break
             }
         } else if depth == entryDepth {
             self.entryDepth = nil
-            if let title, !title.isEmpty,
-               let link, let url = URL(string: link.trimmingCharacters(in: .whitespacesAndNewlines)) {
-                let date = FeedDate.parse(published ?? updated)
-                items.append(NewsItem(title: title, url: url, sourceID: source.id, date: date))
+            if let title = entry.title, !title.isEmpty,
+               let link = entry.link, let url = URL(string: link.trimmingCharacters(in: .whitespacesAndNewlines)) {
+                items.append(NewsItem(
+                    title: title,
+                    url: url,
+                    sourceID: source.id,
+                    date: FeedDate.parse(entry.published ?? entry.updated),
+                    summary: entry.summary ?? entry.content,
+                    imageURL: entry.imageURL(relativeTo: url)
+                ))
             }
         }
+    }
+}
+
+/// Picks usable image addresses out of feed markup.
+enum FeedImage {
+    private static let imgSource = try! NSRegularExpression(
+        pattern: #"<img\b[^>]*?\bsrc\s*=\s*["']([^"']+)["']"#, options: .caseInsensitive)
+
+    /// The first `<img>` in `html` that makes a usable thumbnail.
+    static func firstImage(inHTML html: String, relativeTo articleURL: URL) -> URL? {
+        for match in imgSource.matches(in: html, range: NSRange(html.startIndex..., in: html)) {
+            if let range = Range(match.range(at: 1), in: html),
+               let url = url(from: String(html[range]), relativeTo: articleURL) {
+                return url
+            }
+        }
+        return nil
+    }
+
+    /// Resolves `string` against the article's address and rejects what makes a poor thumbnail:
+    /// inline `data:` images, animated GIFs (usually tracking pixels), SVGs and emoji.
+    static func url(from string: String, relativeTo articleURL: URL) -> URL? {
+        let trimmed = string.decodingHTMLEntities().trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !trimmed.isEmpty,
+              let url = URL(string: trimmed, relativeTo: articleURL)?.absoluteURL,
+              let scheme = url.scheme?.lowercased(), scheme == "http" || scheme == "https" else {
+            return nil
+        }
+        let path = url.path.lowercased()
+        if path.hasSuffix(".gif") || path.hasSuffix(".svg") || path.contains("/emoji/") {
+            return nil
+        }
+        return url
     }
 }
 
