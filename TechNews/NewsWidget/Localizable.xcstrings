@@ -201,6 +201,16 @@
         }
       }
     },
+    "Sources turned off" : {
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "来源已关闭"
+          }
+        }
+      }
+    },
     "Style" : {
       "localizations" : {
         "zh-Hans" : {
@@ -227,6 +237,16 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "小组件稍后会自动重试。"
+          }
+        }
+      }
+    },
+    "Turn them on in TechNews Settings." : {
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "可在 TechNews 的设置中打开。"
           }
         }
       }

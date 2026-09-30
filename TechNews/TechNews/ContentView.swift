@@ -1,10 +1,13 @@
 import NewsKit
 import SwiftUI
-import WidgetKit
 
 /// Main window: a magazine front page for the selected category, with a masthead, category tabs
 /// that stay pinned while scrolling, a hero story and a grid of cards. Refresh also reloads the widgets.
+/// Stories that mention a muted word are left out, and headlines are downloaded again after the
+/// refresh interval chosen in Settings.
 struct ContentView: View {
+    @AppStorage(NewsSettings.Key.mutedWords, store: AppGroup.defaults) private var mutedWords = ""
+    @AppStorage(NewsSettings.Key.refreshInterval, store: AppGroup.defaults) private var refreshInterval = RefreshInterval.standard
     @State private var category: NewsCategory = .all
     @State private var results: [NewsCategory: LoadedNews] = [:]
     @State private var loadingCategory: NewsCategory?
@@ -50,15 +53,29 @@ struct ContentView: View {
         .safeAreaInset(edge: .bottom, spacing: 0) { statusBar }
         .toolbar {
             ToolbarItem(placement: .primaryAction) { refreshButton }
+            ToolbarItem(placement: .primaryAction) {
+                SettingsLink {
+                    Label("Settings", systemImage: "gearshape")
+                }
+            }
         }
         .frame(minWidth: 720, minHeight: 560)
         .task(id: category) {
-            if results[category] == nil {
+            if results[category].map(isOutdated) ?? true {
                 await load(category)
             }
             // The new cards are laid out hidden first, then play their entrance.
             try? await Task.sleep(for: .milliseconds(40))
             revealedCategory = category
+        }
+        .task {
+            // Checked every minute rather than timed exactly, so the window also catches up after the Mac sleeps.
+            while !Task.isCancelled {
+                try? await Task.sleep(for: .seconds(60))
+                if loadingCategory == nil, results[category].map(isOutdated) == true {
+                    await load(category)
+                }
+            }
         }
     }
 
@@ -67,6 +84,10 @@ struct ContentView: View {
     @ViewBuilder
     private var content: some View {
         if let current = results[category] {
+            let words = NewsSettings.lines(mutedWords)
+            let stories = current.items.indices
+                .map { Card(index: $0, item: current.items[$0]) }
+                .filter { !$0.item.mentions(anyOf: words) }
             if current.items.isEmpty {
                 ContentUnavailableView {
                     Label("No headlines right now", systemImage: "wifi.exclamationmark")
@@ -75,8 +96,20 @@ struct ContentView: View {
                 }
                 .frame(maxWidth: .infinity)
                 .padding(.top, 60)
+            } else if stories.isEmpty {
+                ContentUnavailableView {
+                    Label("Every story here is muted", systemImage: "eye.slash")
+                } description: {
+                    Text("Each of these headlines mentions one of your muted words.")
+                } actions: {
+                    SettingsLink {
+                        Text("Edit Muted Words…")
+                    }
+                }
+                .frame(maxWidth: .infinity)
+                .padding(.top, 60)
             } else {
-                magazine(current.items)
+                magazine(stories)
                     .id(category)
             }
         } else {
@@ -85,14 +118,15 @@ struct ContentView: View {
     }
 
     /// The first story with a photo leads; everything else follows in the grid, in order.
-    private func magazine(_ items: [NewsItem]) -> some View {
-        let heroIndex = items.firstIndex { $0.artwork == .photo } ?? 0
-        let cards = items.indices.filter { $0 != heroIndex }.map { Card(index: $0, item: items[$0]) }
+    /// Each story keeps its index in the downloaded list, so ranks count muted stories too.
+    private func magazine(_ stories: [Card]) -> some View {
+        let hero = stories.first { $0.item.artwork == .photo } ?? stories[0]
+        let cards = stories.filter { $0.id != hero.id }
         let isShown = revealedCategory == category
-        let reservesSummary = items.contains { $0.summary != nil }
-        let reservesDetail = items.contains { $0.detail != nil }
+        let reservesSummary = stories.contains { $0.item.summary != nil }
+        let reservesDetail = stories.contains { $0.item.detail != nil }
         return VStack(alignment: .leading, spacing: 26) {
-            HeroCard(item: items[heroIndex], showsSource: category.mixesSources, rank: rank(heroIndex))
+            HeroCard(item: hero.item, showsSource: category.mixesSources, rank: rank(hero.index))
                 .modifier(Reveal(index: 0, isShown: isShown))
             LazyVGrid(columns: columns, alignment: .leading, spacing: 22) {
                 ForEach(Array(cards.enumerated()), id: \.element.id) { position, card in
@@ -170,7 +204,12 @@ struct ContentView: View {
 
     private func refresh() async {
         await load(category)
-        WidgetCenter.shared.reloadAllTimelines()
+        WidgetReloader.refreshNow()
+    }
+
+    /// True once headlines are older than the refresh interval.
+    private func isOutdated(_ news: LoadedNews) -> Bool {
+        Date.now.timeIntervalSince(news.fetchedAt) >= refreshInterval.seconds
     }
 }
 

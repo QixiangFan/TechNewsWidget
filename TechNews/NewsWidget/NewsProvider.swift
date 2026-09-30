@@ -8,6 +8,9 @@ struct NewsEntry: TimelineEntry {
     let style: StyleOption
     /// Headlines on the current page only.
     let items: [NewsItem]
+    /// Positions in a ranked category (Hacker News), keyed by `NewsItem.id`. Counted before muted
+    /// words hide any stories, so every story keeps its rank on the site.
+    var ranks: [String: Int] = [:]
     /// JPEG thumbnails of `items`, keyed by `NewsItem.id` (rich style only).
     var thumbnails: [String: Data] = [:]
     /// When the headlines were downloaded; nil when nothing could be loaded.
@@ -20,14 +23,15 @@ struct NewsEntry: TimelineEntry {
     let pageCount: Int
     /// Sample content (widget gallery), drawn redacted.
     var isPlaceholder = false
+    /// Every source of the category is turned off in the app's settings.
+    var sourcesOff = false
 }
 
 /// Supplies the widget's content. Downloads happen here, inside the sandboxed widget
 /// extension; the last good result is kept in the small `NewsCache`, and the pictures
-/// of the page on screen in `ThumbnailStore`.
+/// of the page on screen in `ThumbnailStore`, both in the App Group so the app can clear them.
+/// How often to download, which sources to use and which words to hide come from `NewsSettings`.
 struct NewsProvider: AppIntentTimelineProvider {
-    /// How long a download stays current before the widget asks for a new one.
-    static let refreshInterval: TimeInterval = 2 * 60 * 60
     /// Retry delay after a download failed completely.
     static let retryInterval: TimeInterval = 15 * 60
     /// Reloads within this window reuse the cache instead of downloading again,
@@ -35,8 +39,8 @@ struct NewsProvider: AppIntentTimelineProvider {
     static let minimumFetchInterval: TimeInterval = 5 * 60
 
     private let service = NewsService()
-    private let cache = NewsCache()
-    private let thumbnailStore = ThumbnailStore()
+    private let cache = NewsCache.shared
+    private let thumbnailStore = ThumbnailStore.shared
 
     func placeholder(in context: Context) -> NewsEntry {
         .sample(for: .all, style: .rich, family: context.family)
@@ -45,82 +49,119 @@ struct NewsProvider: AppIntentTimelineProvider {
     func snapshot(for configuration: SelectCategoryIntent, in context: Context) async -> NewsEntry {
         let category = configuration.category.newsCategory
         let style = configuration.style
+        let settings = NewsSettings.load()
         // The widget gallery needs an instant answer: cached headlines and pictures, or a redacted sample.
         if context.isPreview {
             guard let cached = cache.load(category) else {
                 return .sample(for: category, style: style, family: context.family)
             }
-            var entry = makeEntry(cached, category: category, style: style, family: context.family, date: Date())
+            var entry = makeEntry(cached, category: category, style: style, settings: settings, family: context.family,
+                                  date: Date())
             if style == .rich {
                 entry.thumbnails = thumbnailStore.cachedThumbnails(
                     for: entry.items, leadItemIDs: Self.leadItemIDs(of: entry, family: context.family))
             }
             return entry
         }
-        let (news, _) = await loadNews(category)
-        let entry = makeEntry(news, category: category, style: style, family: context.family, date: Date())
+        let (news, _) = await loadNews(category, settings: settings)
+        let entry = makeEntry(news, category: category, style: style, settings: settings, family: context.family,
+                              date: Date())
         return await withThumbnails(entry, family: context.family)
     }
 
     func timeline(for configuration: SelectCategoryIntent, in context: Context) async -> Timeline<NewsEntry> {
         let now = Date()
         let category = configuration.category.newsCategory
-        let (news, downloadFailed) = await loadNews(category, now: now)
+        let settings = NewsSettings.load()
+        let (news, downloadFailed) = await loadNews(category, settings: settings, now: now)
         let entry = await withThumbnails(
-            makeEntry(news, category: category, style: configuration.style, family: context.family, date: now),
+            makeEntry(news, category: category, style: configuration.style, settings: settings, family: context.family,
+                      date: now),
             family: context.family)
 
         let nextRefresh = downloadFailed
             ? now.addingTimeInterval(Self.retryInterval)
-            : max((news?.fetchedAt ?? now).addingTimeInterval(Self.refreshInterval),
+            : max((news?.fetchedAt ?? now).addingTimeInterval(settings.refreshInterval.seconds),
                   now.addingTimeInterval(Self.minimumFetchInterval))
         return Timeline(entries: [entry], policy: .after(nextRefresh))
     }
 
-    /// Returns the headlines to show, downloading them when the cache is not recent enough.
-    private func loadNews(_ category: NewsCategory, now: Date = Date()) async -> (CachedNews?, downloadFailed: Bool) {
+    /// Returns the headlines to show, downloading them from the sources that are turned on when the
+    /// cache is not recent enough.
+    private func loadNews(_ category: NewsCategory, settings: NewsSettings,
+                          now: Date = Date()) async -> (CachedNews?, downloadFailed: Bool) {
+        removeCacheOutsideAppGroup()
         cache.removeExpired(now: now)
         thumbnailStore.removeExpired(now: now)
+        let reuseCache = PageStore.consumeReuseCache(for: category)
         let cached = cache.load(category, now: now)
-        guard shouldDownload(category, cached: cached, now: now) else {
+        let sources = settings.sources(for: category)
+        guard !sources.isEmpty,
+              shouldDownload(cached: cached, sources: sources, reuseCache: reuseCache, settings: settings, now: now) else {
             return (cached, false)
         }
-        let result = await service.fetch(category)
+        let result = await service.fetch(sources)
         guard !result.items.isEmpty else {
             return (cached, true)
         }
-        let fresh = CachedNews(fetchedAt: now, items: result.items)
+        let fresh = CachedNews(fetchedAt: now, items: result.items, sourceIDs: sources.map(\.id))
         _ = try? cache.save(fresh, for: category)
         PageStore.reset(category)
         return (fresh, false)
     }
 
-    /// Button taps and bursts of reloads reuse the cache; everything else downloads.
-    private func shouldDownload(_ category: NewsCategory, cached: CachedNews?, now: Date) -> Bool {
-        let reuseCache = PageStore.consumeReuseCache(for: category)
+    /// Button taps reuse the cache. Otherwise the widget downloads when sources were turned on or off,
+    /// when the app asked for fresh headlines, or when the cache is more than a few minutes old
+    /// (so bursts of reloads download once).
+    private func shouldDownload(cached: CachedNews?, sources: [NewsSource], reuseCache: Bool,
+                                settings: NewsSettings, now: Date) -> Bool {
         guard let cached else { return true }
         if reuseCache { return false }
+        if cached.sourceIDs != sources.map(\.id) { return true }
+        if let requested = settings.refreshRequestedAt, cached.fetchedAt < requested { return true }
         return now.timeIntervalSince(cached.fetchedAt) >= Self.minimumFetchInterval
     }
 
-    private func makeEntry(_ news: CachedNews?, category: NewsCategory, style: StyleOption, family: WidgetFamily,
-                           date: Date) -> NewsEntry {
-        let items = news?.items ?? []
+    /// Before the App Group, the widget kept its cache in its own container; that copy is no longer read.
+    private func removeCacheOutsideAppGroup() {
+        guard AppGroup.cacheDirectory != NewsCache.defaultDirectory else { return }
+        NewsCache().removeAll()
+    }
+
+    /// The current page of the stories the settings let through. Until a download with the current
+    /// sources succeeds, the cache may still hold stories from a source that was just turned off.
+    private func makeEntry(_ news: CachedNews?, category: NewsCategory, style: StyleOption, settings: NewsSettings,
+                           family: WidgetFamily, date: Date) -> NewsEntry {
+        let allItems = news?.items ?? []
+        let items = allItems.filter(settings.shows)
         let perPage = family.headlinesPerPage(style: style)
         let pageCount = max(1, (items.count + perPage - 1) / perPage)
         let position = PageStore.position(for: category)
         // Wraps in both directions: position -1 is the last page.
         let page = (position % pageCount + pageCount) % pageCount
+        let pageItems = Array(items.dropFirst(page * perPage).prefix(perPage))
         return NewsEntry(
             date: date,
             category: category,
             style: style,
-            items: Array(items.dropFirst(page * perPage).prefix(perPage)),
+            items: pageItems,
+            ranks: category.showsRanks ? Self.ranks(of: pageItems, in: allItems) : [:],
             fetchedAt: news?.fetchedAt,
             position: position,
             page: page,
-            pageCount: pageCount
+            pageCount: pageCount,
+            sourcesOff: settings.sources(for: category).isEmpty
         )
+    }
+
+    /// Each story's position in the whole list, starting at 1.
+    private static func ranks(of items: [NewsItem], in allItems: [NewsItem]) -> [String: Int] {
+        let ids = Set(items.map(\.id))
+        var ranks: [String: Int] = [:]
+        for (index, item) in allItems.enumerated() where ids.contains(item.id) {
+            ranks[item.id] = index + 1
+        }
+        return ranks
     }
 
     /// Adds the pictures of the rich style, downloading the ones not on disk yet.
@@ -222,6 +263,7 @@ extension NewsEntry {
             category: category,
             style: style,
             items: items,
+            ranks: category.showsRanks ? Dictionary(uniqueKeysWithValues: items.enumerated().map { ($1.id, $0 + 1) }) : [:],
             fetchedAt: Date(),
             position: 0,
             page: 0,

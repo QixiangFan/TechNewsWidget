@@ -15,7 +15,7 @@ struct RichLayout: View {
     let context: WidgetContext
 
     var body: some View {
-        let stories = entry.items.enumerated().map { Story(item: $1, rank: rank(at: $0)) }
+        let stories = entry.items.map { Story(item: $0, rank: entry.ranks[$0.id]) }
         switch context.family {
         case .systemSmall:
             if let story = stories.first {
@@ -52,12 +52,6 @@ struct RichLayout: View {
             }
         }
         .frame(maxWidth: .infinity, alignment: .topLeading)
-    }
-
-    /// Position in the whole ranking, counting the pages before this one.
-    private func rank(at index: Int) -> Int? {
-        guard entry.category.showsRanks else { return nil }
-        return entry.page * context.family.headlinesPerPage(style: .rich) + index + 1
     }
 }
 

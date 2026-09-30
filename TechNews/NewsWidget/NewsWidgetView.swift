@@ -68,7 +68,7 @@ struct WidgetContent: View {
         VStack(alignment: .leading, spacing: context.isSmall ? 8 : 10) {
             WidgetHeader(entry: entry, context: context, onPhoto: onPhoto)
             if entry.items.isEmpty {
-                EmptyStateView(isSmall: context.isSmall)
+                EmptyStateView(isSmall: context.isSmall, sourcesOff: entry.sourcesOff)
                 Spacer(minLength: 0)
             } else {
                 PageStrip(position: entry.position) {
@@ -258,15 +258,18 @@ struct WidgetBackdrop: View {
     }
 }
 
+/// No stories: the download failed, or every source of the category is turned off in the app's settings.
 struct EmptyStateView: View {
     let isSmall: Bool
+    var sourcesOff = false
 
     var body: some View {
         VStack(alignment: .leading, spacing: 4) {
-            Label("No headlines right now", systemImage: "wifi.exclamationmark")
+            Label(sourcesOff ? "Sources turned off" : "No headlines right now",
+                  systemImage: sourcesOff ? "eye.slash" : "wifi.exclamationmark")
                 .font(.system(size: 12, weight: .semibold))
             if !isSmall {
-                Text("The widget will try again soon.")
+                Text(sourcesOff ? "Turn them on in TechNews Settings." : "The widget will try again soon.")
                     .font(.system(size: 11))
                     .foregroundStyle(.secondary)
             }
