@@ -146,7 +146,7 @@
         "zh-Hans" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "换一批"
+            "value" : "下一页"
           }
         }
       }
@@ -177,6 +177,16 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "第 %1$lld 页，共 %2$lld 页"
+          }
+        }
+      }
+    },
+    "Previous Page" : {
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "上一页"
           }
         }
       }

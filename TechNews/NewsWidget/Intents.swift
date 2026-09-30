@@ -70,7 +70,27 @@ struct NextPageIntent: AppIntent {
     }
 
     func perform() async throws -> some IntentResult {
-        PageStore.advance(category.newsCategory)
+        PageStore.turn(category.newsCategory, by: 1)
+        return .result()
+    }
+}
+
+/// The "previous page" button next to it; from the first page it goes to the last.
+struct PreviousPageIntent: AppIntent {
+    static var title: LocalizedStringResource { "Previous Page" }
+    static var isDiscoverable: Bool { false }
+
+    @Parameter(title: "Category")
+    var category: CategoryOption
+
+    init() {}
+
+    init(category: NewsCategory) {
+        self.category = CategoryOption(category)
+    }
+
+    func perform() async throws -> some IntentResult {
+        PageStore.turn(category.newsCategory, by: -1)
         return .result()
     }
 }

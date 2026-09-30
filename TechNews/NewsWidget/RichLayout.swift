@@ -200,13 +200,7 @@ struct LeadStory: View {
 
     private func cover(_ photo: NSImage) -> some View {
         let shape = RoundedRectangle(cornerRadius: 10, style: .continuous)
-        return Color.clear
-            .overlay {
-                Image(nsImage: photo)
-                    .resizable()
-                    .desaturatedInTintedAppearance()
-                    .scaledToFill()
-            }
+        return FilledImage(image: photo)
             .overlay {
                 LinearGradient(stops: [
                     .init(color: .black.opacity(0), location: 0.3),
@@ -347,26 +341,14 @@ struct WidgetArtwork: View {
                 shape
                     .fill(SourceStyle.color(for: item.sourceID).opacity(0.14))
                     .overlay {
-                        Color.clear
+                        FilledImage(image: image)
                             .aspectRatio(1, contentMode: .fit)
-                            .overlay {
-                                Image(nsImage: image)
-                                    .resizable()
-                                    .desaturatedInTintedAppearance()
-                                    .scaledToFill()
-                            }
                             .clipShape(Circle())
                             .overlay(Circle().strokeBorder(.white.opacity(0.7), lineWidth: 1))
                             .padding(5)
                     }
             } else {
-                Color.clear
-                    .overlay {
-                        Image(nsImage: image)
-                            .resizable()
-                            .desaturatedInTintedAppearance()
-                            .scaledToFill()
-                    }
+                FilledImage(image: image)
                     .clipShape(shape)
                     .overlay(shape.strokeBorder(.primary.opacity(0.08), lineWidth: 0.5))
             }
@@ -375,6 +357,40 @@ struct WidgetArtwork: View {
         } else {
             MonogramTile(sourceID: item.sourceID, cornerRadius: cornerRadius)
         }
+    }
+}
+
+/// A picture cropped to fill its frame.
+///
+/// `.scaledToFill()` would lay the image out larger than its frame and only clip what is drawn,
+/// but on the desktop WidgetKit treats the whole image as being under the pointer: the large
+/// widget's lead photo reached up over the header, so clicking the page buttons opened the app
+/// instead. Cropping the bitmap to the frame's shape keeps the image exactly the size of its frame.
+struct FilledImage: View {
+    let image: NSImage
+
+    var body: some View {
+        GeometryReader { proxy in
+            Image(nsImage: image.cropped(toAspectRatioOf: proxy.size))
+                .resizable()
+                .desaturatedInTintedAppearance()
+        }
+    }
+}
+
+private extension NSImage {
+    /// The centered part of the image that has the aspect ratio of `size`.
+    func cropped(toAspectRatioOf size: CGSize) -> NSImage {
+        guard size.width > 0, size.height > 0,
+              let bitmap = cgImage(forProposedRect: nil, context: nil, hints: nil) else { return self }
+        let width = CGFloat(bitmap.width)
+        let height = CGFloat(bitmap.height)
+        let aspectRatio = size.width / size.height
+        let crop = width / height > aspectRatio
+            ? CGRect(x: (width - height * aspectRatio) / 2, y: 0, width: height * aspectRatio, height: height)
+            : CGRect(x: 0, y: (height - width / aspectRatio) / 2, width: width, height: width / aspectRatio)
+        guard let cropped = bitmap.cropping(to: crop.integral) else { return self }
+        return NSImage(cgImage: cropped, size: .zero)
     }
 }
 

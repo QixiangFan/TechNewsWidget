@@ -43,9 +43,14 @@ extension NewsEntry {
         return NSImage(data: data)
     }
 
-    /// Changes whenever a different page is shown, which drives the page transition.
+    /// Changes when new headlines arrive, which replaces the whole page strip.
+    var contentID: String {
+        "\(category.rawValue)-\(fetchedAt?.timeIntervalSince1970 ?? 0)"
+    }
+
+    /// Changes whenever a different page is shown, which drives the page animation.
     var pageID: String {
-        "\(category.rawValue)-\(page)-\(fetchedAt?.timeIntervalSince1970 ?? 0)"
+        "\(contentID)-\(position)"
     }
 }
 
@@ -66,14 +71,12 @@ struct WidgetContent: View {
                 EmptyStateView(isSmall: context.isSmall)
                 Spacer(minLength: 0)
             } else {
-                page
-                    // Exactly the height left under the header. Without the zero minimum, a page that
-                    // runs long would make the content taller than the widget, which WidgetKit then
-                    // centers, pushing the header past the top edge.
-                    .frame(maxWidth: .infinity, minHeight: 0, maxHeight: .infinity, alignment: .topLeading)
-                    .id(entry.pageID)
-                    .transition(.push(from: .trailing))
-                    .invalidatableContent()
+                PageStrip(position: entry.position) {
+                    page
+                }
+                .id(entry.contentID)
+                .transition(.push(from: .trailing))
+                .invalidatableContent()
             }
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
@@ -91,9 +94,39 @@ struct WidgetContent: View {
     }
 }
 
+/// The current page between two empty neighbors, one page width to either side. Turning the page
+/// moves the strip instead of swapping the page: the pages keep their identity from one timeline
+/// entry to the next, so WidgetKit slides them in the direction of the button, also when the
+/// pages wrap around, and fades the stories in and out on the way.
+///
+/// The strip takes exactly the height left under the header. A page that runs long overflows at
+/// the bottom instead of making the content taller than the widget, which WidgetKit would then
+/// center, pushing the header past the top edge.
+struct PageStrip<Page: View>: View {
+    let position: Int
+    @ViewBuilder let page: Page
+
+    var body: some View {
+        GeometryReader { proxy in
+            ForEach(position - 1 ... position + 1, id: \.self) { slot in
+                Group {
+                    if slot == position {
+                        page
+                            .transition(.opacity)
+                    } else {
+                        Color.clear
+                    }
+                }
+                .frame(width: proxy.size.width, height: proxy.size.height, alignment: .topLeading)
+                .offset(x: CGFloat(slot - position) * proxy.size.width)
+            }
+        }
+    }
+}
+
 // MARK: - Header
 
-/// Category, update time, page position and the "next page" button.
+/// Category, update time, page position and the page buttons.
 struct WidgetHeader: View {
     let entry: NewsEntry
     let context: WidgetContext
@@ -115,12 +148,14 @@ struct WidgetHeader: View {
                     .foregroundStyle(.tertiary)
                     .accessibilityLabel(Text("Updated \(fetchedAt.formatted(date: .omitted, time: .shortened))"))
             }
-            Spacer(minLength: 4)
+            // The stack's spacing already leaves 10 pt around the spacer; an extra minimum would
+            // cut "Hacker News" short next to the page buttons in the small widget.
+            Spacer(minLength: 0)
             if entry.pageCount > 1 {
                 if !context.isSmall {
                     PageIndicator(page: entry.page, count: entry.pageCount)
                 }
-                NextPageButton(category: entry.category, onPhoto: onPhoto)
+                PageButtons(category: entry.category, onPhoto: onPhoto)
             }
         }
         .foregroundStyle(onPhoto ? .white : .primary)
@@ -165,20 +200,28 @@ struct PageIndicator: View {
     }
 }
 
-struct NextPageButton: View {
+/// Previous and next page in one capsule, like the back and forward buttons of a Mac toolbar.
+struct PageButtons: View {
     let category: NewsCategory
     var onPhoto = false
 
     var body: some View {
-        Button(intent: NextPageIntent(category: category)) {
-            Image(systemName: "chevron.forward")
+        HStack(spacing: 0) {
+            button(PreviousPageIntent(category: category), symbol: "chevron.backward", label: "Previous Page")
+            button(NextPageIntent(category: category), symbol: "chevron.forward", label: "Next Page")
+        }
+        .background(Capsule().fill(onPhoto ? AnyShapeStyle(.black.opacity(0.32)) : AnyShapeStyle(.quaternary)))
+    }
+
+    private func button(_ intent: some AppIntent, symbol: String, label: LocalizedStringResource) -> some View {
+        Button(intent: intent) {
+            Image(systemName: symbol)
                 .font(.system(size: 9, weight: .heavy))
-                .frame(width: 20, height: 20)
-                .background(Circle().fill(onPhoto ? AnyShapeStyle(.black.opacity(0.32)) : AnyShapeStyle(.quaternary)))
-                .contentShape(Circle())
+                .frame(width: 18, height: 20)
+                .contentShape(Rectangle())
         }
         .buttonStyle(.plain)
-        .accessibilityLabel(Text("Next Page"))
+        .accessibilityLabel(Text(label))
     }
 }
 
@@ -193,14 +236,7 @@ struct WidgetBackdrop: View {
 
     var body: some View {
         if let photo = entry.heroPhoto(in: context) {
-            // Color.clear takes the widget's size, so the cropped photo never stretches the layout.
-            Color.clear
-                .overlay {
-                    Image(nsImage: photo)
-                        .resizable()
-                        .scaledToFill()
-                }
-                .clipped()
+            FilledImage(image: photo)
                 .overlay {
                     LinearGradient(stops: [
                         .init(color: .black.opacity(0.5), location: 0),

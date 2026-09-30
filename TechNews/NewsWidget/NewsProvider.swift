@@ -12,6 +12,10 @@ struct NewsEntry: TimelineEntry {
     var thumbnails: [String: Data] = [:]
     /// When the headlines were downloaded; nil when nothing could be loaded.
     let fetchedAt: Date?
+    /// Pages turned forward minus pages turned back since the headlines arrived, so it can pass
+    /// either end. `page` is this wrapped into `0..<pageCount`; the view slides by `position`
+    /// (see `PageStrip`), which keeps a turn that wraps around moving in the button's direction.
+    let position: Int
     let page: Int
     let pageCount: Int
     /// Sample content (widget gallery), drawn redacted.
@@ -104,13 +108,16 @@ struct NewsProvider: AppIntentTimelineProvider {
         let items = news?.items ?? []
         let perPage = family.headlinesPerPage(style: style)
         let pageCount = max(1, (items.count + perPage - 1) / perPage)
-        let page = PageStore.page(for: category) % pageCount
+        let position = PageStore.position(for: category)
+        // Wraps in both directions: position -1 is the last page.
+        let page = (position % pageCount + pageCount) % pageCount
         return NewsEntry(
             date: date,
             category: category,
             style: style,
             items: Array(items.dropFirst(page * perPage).prefix(perPage)),
             fetchedAt: news?.fetchedAt,
+            position: position,
             page: page,
             pageCount: pageCount
         )
@@ -149,16 +156,18 @@ extension WidgetFamily {
     }
 }
 
-/// Remembers the "next page" position per category, in the widget extension's own defaults.
+/// Remembers the page position per category, in the widget extension's own defaults.
+/// Widgets of different sizes share it and each wraps it into its own page count.
 enum PageStore {
     private static let defaults = UserDefaults.standard
 
-    static func page(for category: NewsCategory) -> Int {
+    static func position(for category: NewsCategory) -> Int {
         defaults.integer(forKey: pageKey(category))
     }
 
-    static func advance(_ category: NewsCategory) {
-        defaults.set(page(for: category) + 1, forKey: pageKey(category))
+    /// Moves `pages` forward, or back when negative.
+    static func turn(_ category: NewsCategory, by pages: Int) {
+        defaults.set(position(for: category) + pages, forKey: pageKey(category))
         reuseCacheOnce(category)
     }
 
@@ -214,6 +223,7 @@ extension NewsEntry {
             style: style,
             items: items,
             fetchedAt: Date(),
+            position: 0,
             page: 0,
             pageCount: 3,
             isPlaceholder: redacted
