@@ -72,6 +72,46 @@ private func item(_ path: String, source: String = "s") -> NewsItem {
         #expect(try decoder.decode(CachedNews.self, from: data).items.count == CacheLimits.maxItemsPerCategory)
     }
 
+    @Test func remembersRequestedSources() throws {
+        let cache = temporaryCache()
+        let fetchedAt = Date(timeIntervalSince1970: 1_790_000_000)
+        try cache.save(CachedNews(fetchedAt: fetchedAt, items: [item("x")], sourceIDs: ["verge", "ars"]), for: .english)
+        #expect(cache.load(.english, now: fetchedAt)?.sourceIDs == ["verge", "ars"])
+    }
+
+    @Test func readsCachesWrittenBeforeSourceIDs() throws {
+        let json = #"{"fetchedAt":1790000000,"items":[{"t":"x","u":"https://example.com/x","s":"hn"}]}"#
+        let decoder = JSONDecoder()
+        decoder.dateDecodingStrategy = .secondsSince1970
+        let cached = try decoder.decode(CachedNews.self, from: Data(json.utf8))
+        #expect(cached.items.map(\.title) == ["x"])
+        #expect(cached.sourceIDs == nil)
+    }
+
+    @Test func measuresAndClearsHeadlinesAndThumbnails() throws {
+        let directory = FileManager.default.temporaryDirectory
+            .appendingPathComponent("NewsKitTests-\(UUID().uuidString)", isDirectory: true)
+        let cache = NewsCache(directory: directory)
+        #expect(cache.usage() == CacheUsage())
+
+        let written = try cache.save(CachedNews(fetchedAt: Date(), items: [item("x")]), for: .english)
+        let thumbs = directory.appendingPathComponent("thumbs", isDirectory: true)
+        try FileManager.default.createDirectory(at: thumbs, withIntermediateDirectories: true)
+        try Data(count: 1_000).write(to: thumbs.appendingPathComponent("a.jpg"))
+        try Data(count: 500).write(to: thumbs.appendingPathComponent("b-640.jpg"))
+
+        let usage = cache.usage()
+        #expect(usage.headlineBytes == written)
+        #expect(usage.thumbnailBytes == 1_500)
+        #expect(usage.thumbnailCount == 2)
+        #expect(usage.totalBytes == written + 1_500)
+        #expect(usage.lastSaved != nil)
+
+        #expect(cache.removeAll())
+        #expect(cache.usage() == CacheUsage())
+        #expect(cache.load(.english) == nil)
+    }
+
     @Test func trimsItemsUntilFileFitsHardCap() throws {
         // Very long URLs push 60 items well past the 64 KB cap.
         let longPath = String(repeating: "p", count: 2_000)

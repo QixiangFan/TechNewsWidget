@@ -35,7 +35,11 @@ public struct NewsService: Sendable {
 
     /// Fetches every source in `category` and interleaves them into one list.
     public func fetch(_ category: NewsCategory) async -> NewsFetchResult {
-        let sources = NewsSource.sources(for: category)
+        await fetch(NewsSource.sources(for: category))
+    }
+
+    /// Fetches `sources` and interleaves them into one list, in the order given.
+    public func fetch(_ sources: [NewsSource]) async -> NewsFetchResult {
         var itemsBySource: [String: [NewsItem]] = [:]
         var failed: [String] = []
 

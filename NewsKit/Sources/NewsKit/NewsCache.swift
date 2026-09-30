@@ -23,11 +23,28 @@ public enum CacheLimits {
 public struct CachedNews: Codable, Sendable {
     public let fetchedAt: Date
     public let items: [NewsItem]
+    /// The sources that were asked for, so a change of sources can be told from a source that failed.
+    /// Nil in caches written before sources could be turned off.
+    public let sourceIDs: [String]?
 
-    public init(fetchedAt: Date, items: [NewsItem]) {
+    public init(fetchedAt: Date, items: [NewsItem], sourceIDs: [String]? = nil) {
         self.fetchedAt = fetchedAt
         self.items = items
+        self.sourceIDs = sourceIDs
     }
+}
+
+/// How much space the cache takes, as shown in the app's settings.
+public struct CacheUsage: Equatable, Sendable {
+    public var headlineBytes = 0
+    public var thumbnailBytes = 0
+    public var thumbnailCount = 0
+    /// When the newest headlines were saved; nil when there are none.
+    public var lastSaved: Date?
+
+    public var totalBytes: Int { headlineBytes + thumbnailBytes }
+
+    public init() {}
 }
 
 /// Stores the last successful fetch of each category as one small JSON file, overwritten on every save.
@@ -85,12 +102,41 @@ public struct NewsCache: Sendable {
     /// Encodes `news`, dropping items from the end until it fits in `CacheLimits.maxFileBytes`.
     public static func encode(_ news: CachedNews) throws -> Data {
         var items = Array(news.items.prefix(CacheLimits.maxItemsPerCategory))
-        var data = try encoder.encode(CachedNews(fetchedAt: news.fetchedAt, items: items))
+        var data = try encoder.encode(CachedNews(fetchedAt: news.fetchedAt, items: items, sourceIDs: news.sourceIDs))
         while data.count > CacheLimits.maxFileBytes, !items.isEmpty {
             items.removeLast(max(1, items.count / 10))
-            data = try encoder.encode(CachedNews(fetchedAt: news.fetchedAt, items: items))
+            data = try encoder.encode(CachedNews(fetchedAt: news.fetchedAt, items: items, sourceIDs: news.sourceIDs))
         }
         return data
+    }
+
+    /// Sizes of the headline files and of the thumbnails in the `thumbs` folder (see `ThumbnailStore`).
+    public func usage() -> CacheUsage {
+        var usage = CacheUsage()
+        let keys: Set<URLResourceKey> = [.isRegularFileKey, .fileSizeKey, .contentModificationDateKey]
+        guard let files = FileManager.default.enumerator(at: directory, includingPropertiesForKeys: Array(keys)) else {
+            return usage
+        }
+        for case let url as URL in files {
+            guard let values = try? url.resourceValues(forKeys: keys), values.isRegularFile == true else { continue }
+            if url.pathExtension == "jpg" {
+                usage.thumbnailBytes += values.fileSize ?? 0
+                usage.thumbnailCount += 1
+            } else if url.lastPathComponent.hasPrefix("news-"), url.pathExtension == "json" {
+                usage.headlineBytes += values.fileSize ?? 0
+                if let saved = values.contentModificationDate, saved > usage.lastSaved ?? .distantPast {
+                    usage.lastSaved = saved
+                }
+            }
+        }
+        return usage
+    }
+
+    /// Deletes every cached headline and thumbnail. Returns false if something could not be deleted.
+    @discardableResult
+    public func removeAll() -> Bool {
+        guard FileManager.default.fileExists(atPath: directory.path) else { return true }
+        return (try? FileManager.default.removeItem(at: directory)) != nil
     }
 
     private func fileURL(for category: NewsCategory) -> URL {
