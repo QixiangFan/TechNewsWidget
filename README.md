@@ -19,7 +19,19 @@ The ‹ and › buttons in the header turn to the previous and next page, wrappi
 
 ### App
 
-The app lays out the same news as a magazine front page: a lead story across the top and a grid of cards below. ⌘1–⌘5 switch categories and ⌘R refreshes, which also reloads the widgets. Right-click a card to copy or share its link.
+The app lays out the same news as a magazine front page: a lead story across the top and a grid of cards below. ⌘1–⌘5 switch categories and ⌘R refreshes the window and makes the widgets download fresh headlines too. Right-click a card to copy or share its link. Closing the window quits the app; the widgets keep updating on their own.
+
+### Settings
+
+Open Settings with ⌘, or the gear button in the toolbar.
+
+- **General**: open TechNews at login; light, dark or system appearance; how often news is refreshed (every 30 minutes to 8 hours, 2 hours by default), which applies to the widgets and the open window; when the widgets last updated, with an **Update Now** button.
+- **Content**
+  - **Widget Sources**: turn individual sources on or off for the widgets, for example to leave Hacker News and GitHub out of the "All" mix. The app window always shows every source. A widget whose category has every source turned off says so.
+  - **Muted Words**: hide stories whose title or summary mentions a word, in the widgets and in the window. English words match whole words (and their plural), so "AI" hides "AI chips" and "苹果发布AI新功能" but not "said" or "OpenAI"; Chinese words match anywhere.
+- **Storage**: how much space the widget cache takes (headlines and pictures), and a button to clear it.
+
+The app and the widget share these settings and the widget's cache through an App Group, `<Team ID>.com.qixiangfan.TechNews` (see the `.entitlements` files). The code reads the group from its own entitlements, so building with a different team needs no code changes.
 
 ### Sources
 
@@ -42,6 +54,7 @@ Sources are listed in [`NewsKit/Sources/NewsKit/NewsSource.swift`](NewsKit/Sourc
 - **Small thumbnails.** The widget only downloads pictures for the page on screen and asks the image host for a resized copy, so a 4 MB original arrives as about 17 KB. Thumbnails are stored as JPEGs of at most 320 px, typically 5–20 KB each; the lead story of the large sizes gets a sharper 640 px copy, typically about 30 KB. The folder is capped at 300 KB and drops the oldest first. Altogether the widget's cache stays under about 400 KB.
 - Networking uses an ephemeral `URLSession` with no `URLCache`, so feeds and images are never written to disk, apart from the thumbnails above. The app keeps pictures in memory only.
 - Cache files and thumbnails older than 3 days (or unreadable) are deleted on every widget refresh, including those of categories no widget shows any more.
+- The cache lives in the App Group's container, so the app's settings can show its size and clear it. Each file remembers which sources it was downloaded from, so turning a source on or off makes the widget download again.
 
 All limits live in [`NewsKit/Sources/NewsKit/NewsCache.swift`](NewsKit/Sources/NewsKit/NewsCache.swift).
 
@@ -81,7 +94,19 @@ swift test                             # offline parser, cache and thumbnail tes
 
 ### 主 App
 
-App 把同样的资讯排成杂志首页：顶部是一条头条大图，下面是卡片网格。⌘1–⌘5 切换分类，⌘R 刷新（同时刷新小组件）。右键点按卡片可以拷贝或分享链接。
+App 把同样的资讯排成杂志首页：顶部是一条头条大图，下面是卡片网格。⌘1–⌘5 切换分类，⌘R 刷新窗口，同时让小组件重新下载资讯。右键点按卡片可以拷贝或分享链接。关闭窗口即退出 App，小组件会自己继续更新。
+
+### 设置
+
+按 ⌘, 或点工具栏里的齿轮按钮打开设置。
+
+- **通用**：登录时打开 TechNews；外观（跟随系统、浅色、深色）；刷新间隔（30 分钟到 8 小时，默认 2 小时），同时适用于小组件和打开着的窗口；小组件上次更新的时间，以及“立即更新”按钮。
+- **内容**
+  - **小组件新闻来源**：单独打开或关闭小组件里的每个来源，比如让“全部”分类里不出现 Hacker News 和 GitHub。App 窗口始终显示全部来源。如果某个小组件所选分类的来源全被关闭，小组件上会给出提示。
+  - **屏蔽词**：标题或摘要里含有屏蔽词的资讯，在小组件和窗口里都不显示。英文按整个单词匹配（包括复数），所以屏蔽“AI”会隐藏“AI chips”和“苹果发布AI新功能”，但不会隐藏“said”或“OpenAI”；中文词在任何位置出现都算。
+- **存储空间**：小组件缓存占用的空间（新闻列表和图片），以及清除缓存的按钮。
+
+App 和小组件通过 App Group（`<Team ID>.com.qixiangfan.TechNews`，见 `.entitlements` 文件）共享这些设置和小组件的缓存。代码从自身的 entitlements 里读取 App Group 名称，所以换成别的开发者团队编译时不用改代码。
 
 ### 资讯来源
 
@@ -104,6 +129,7 @@ App 把同样的资讯排成杂志首页：顶部是一条头条大图，下面�
 - **缩略图很小。** 小组件只下载当前页的图片，并请图床先把图缩小，一张 4 MB 的原图下载下来只有约 17 KB。缩略图存成最长边不超过 320 像素的 JPEG，一般每张 5–20 KB；大号和超大的头条用更清晰的 640 像素版本，一般约 30 KB。整个目录不超过 300 KB，超出时先删最旧的。小组件的全部缓存合计不超过约 400 KB。
 - 网络请求使用 ephemeral `URLSession`，并关闭了 `URLCache`，除了上面的缩略图，订阅原文和图片都不会写入磁盘。App 里的图片只放在内存中。
 - 每次小组件刷新时，都会删除超过 3 天或已损坏的缓存文件和缩略图，包括已经没有小组件在用的分类。
+- 缓存放在 App Group 的共享目录里，所以 App 的设置能显示缓存大小并清除缓存。每个缓存文件都记着自己是从哪些来源下载的，打开或关闭来源后，小组件会重新下载。
 
 所有上限都定义在 [`NewsKit/Sources/NewsKit/NewsCache.swift`](NewsKit/Sources/NewsKit/NewsCache.swift)。
 
