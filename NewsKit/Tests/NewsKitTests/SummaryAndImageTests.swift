@@ -113,7 +113,9 @@ private let feedSource = NewsSource(id: "test", name: "Test", category: .chinese
         let oldFormat = #"{"fetchedAt": 1790000000, "items": [{"t": "Old", "u": "https:\/\/example.com\/old", "s": "hn"}]}"#
         try Data(oldFormat.utf8).write(to: directory.appendingPathComponent("news-hackerNews.json"))
 
-        let item = try #require(NewsCache(directory: directory).load(.hackerNews, now: now)?.items.first)
+        let news = try #require(NewsCache(directory: directory).load(.hackerNews, now: now))
+        let item = try #require(news.items.first)
+        #expect(news.topStoryIDs == nil)
         #expect(item.title == "Old")
         #expect(item.summary == nil)
         #expect(item.imageURL == nil)

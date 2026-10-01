@@ -26,11 +26,15 @@ public struct CachedNews: Codable, Sendable {
     /// The sources that were asked for, so a change of sources can be told from a source that failed.
     /// Nil in caches written before sources could be turned off.
     public let sourceIDs: [String]?
+    /// The most important stories, most important first (see `TopStories`).
+    /// Nil in caches written before stories were ranked.
+    public let topStoryIDs: [String]?
 
-    public init(fetchedAt: Date, items: [NewsItem], sourceIDs: [String]? = nil) {
+    public init(fetchedAt: Date, items: [NewsItem], sourceIDs: [String]? = nil, topStoryIDs: [String]? = nil) {
         self.fetchedAt = fetchedAt
         self.items = items
         self.sourceIDs = sourceIDs
+        self.topStoryIDs = topStoryIDs
     }
 }
 
@@ -102,10 +106,14 @@ public struct NewsCache: Sendable {
     /// Encodes `news`, dropping items from the end until it fits in `CacheLimits.maxFileBytes`.
     public static func encode(_ news: CachedNews) throws -> Data {
         var items = Array(news.items.prefix(CacheLimits.maxItemsPerCategory))
-        var data = try encoder.encode(CachedNews(fetchedAt: news.fetchedAt, items: items, sourceIDs: news.sourceIDs))
+        func encoded() throws -> Data {
+            try encoder.encode(CachedNews(fetchedAt: news.fetchedAt, items: items, sourceIDs: news.sourceIDs,
+                                          topStoryIDs: news.topStoryIDs))
+        }
+        var data = try encoded()
         while data.count > CacheLimits.maxFileBytes, !items.isEmpty {
             items.removeLast(max(1, items.count / 10))
-            data = try encoder.encode(CachedNews(fetchedAt: news.fetchedAt, items: items, sourceIDs: news.sourceIDs))
+            data = try encoded()
         }
         return data
     }

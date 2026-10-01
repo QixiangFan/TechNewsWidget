@@ -17,6 +17,8 @@ public struct NewsFetchResult: Sendable {
     public let items: [NewsItem]
     /// IDs of the sources that failed; the rest still contributed items.
     public let failedSourceIDs: [String]
+    /// The most important stories (see `TopStories`), all of them in `items`, most important first.
+    public let topStoryIDs: [String]
 }
 
 /// Downloads and merges headlines. Every source is fetched concurrently and a failing
@@ -65,9 +67,12 @@ public struct NewsService: Sendable {
         }
 
         let lists = sources.compactMap { itemsBySource[$0.id] }
+        // Picked from the full lists, so a story far down one feed still counts as coverage.
+        let topStories = TopStories.pick(from: lists, now: Date())
         return NewsFetchResult(
-            items: Self.interleave(lists, limit: CacheLimits.maxItemsPerCategory),
-            failedSourceIDs: failed
+            items: Self.interleave(lists, limit: CacheLimits.maxItemsPerCategory, keeping: topStories),
+            failedSourceIDs: failed,
+            topStoryIDs: topStories.map(\.id)
         )
     }
 
@@ -117,6 +122,19 @@ public struct NewsService: Sendable {
             }
         }
         return merged
+    }
+
+    /// `interleave`, but `required` stories that fell past the limit replace the last ones.
+    public static func interleave(_ lists: [[NewsItem]], limit: Int, keeping required: [NewsItem]) -> [NewsItem] {
+        var merged = interleave(lists, limit: limit)
+        let mergedIDs = Set(merged.map(\.id))
+        let requiredIDs = Set(required.map(\.id))
+        let missing = required.filter { !mergedIDs.contains($0.id) }
+        while merged.count + missing.count > limit,
+              let index = merged.lastIndex(where: { !requiredIDs.contains($0.id) }) {
+            merged.remove(at: index)
+        }
+        return merged + missing
     }
 
     private func data(from url: URL, sourceID: String) async throws -> Data {

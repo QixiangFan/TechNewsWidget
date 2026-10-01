@@ -89,6 +89,16 @@
         }
       }
     },
+    "By Source" : {
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "按来源轮流"
+          }
+        }
+      }
+    },
     "Check your network connection, then press Refresh." : {
       "localizations" : {
         "zh-Hans" : {
@@ -379,6 +389,16 @@
         }
       }
     },
+    "Order" : {
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "排序"
+          }
+        }
+      }
+    },
     "Pictures" : {
       "localizations" : {
         "zh-Hans" : {
@@ -459,6 +479,16 @@
         }
       }
     },
+    "Story order" : {
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "新闻顺序"
+          }
+        }
+      }
+    },
     "System" : {
       "localizations" : {
         "zh-Hans" : {
@@ -505,6 +535,26 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "之后小组件会重新下载新闻和图片。"
+          }
+        }
+      }
+    },
+    "Top Stories First" : {
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "重要新闻优先"
+          }
+        }
+      }
+    },
+    "Top Stories First puts the stories that several outlets report on the first page. Applies to the widgets and the TechNews window." : {
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "“重要新闻优先”会把多家媒体都在报道的新闻放在第一页。对小组件和 TechNews 窗口都生效。"
           }
         }
       }

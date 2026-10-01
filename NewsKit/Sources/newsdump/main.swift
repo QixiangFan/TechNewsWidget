@@ -2,7 +2,7 @@ import Foundation
 import NewsKit
 
 // Usage:
-//   swift run newsdump                          Summary of every source plus the cache size per category.
+//   swift run newsdump                          Summary of every source, the top stories and the cache size per category.
 //   swift run newsdump <source>                 Every item from one source, e.g. `swift run newsdump hn`.
 //   swift run newsdump <source> --thumbnails    Also downloads and shrinks each item's image, printing the sizes.
 
@@ -96,12 +96,27 @@ for source in NewsSource.all {
     }
 }
 
+// The stories each category moves to the front, with the other outlets that reported them.
+for category in NewsCategory.allCases {
+    let lists = NewsSource.sources(for: category).compactMap { itemsBySource[$0.id] }
+    let topStories = TopStories.pick(from: lists, now: Date())
+    guard !topStories.isEmpty else { continue }
+    let coverage = TopStories.coverage(in: lists)
+    print("\nTop stories in \(category.rawValue):")
+    for (index, item) in topStories.enumerated() {
+        print("   \(index + 1). [\(item.sourceID)] \(item.title)")
+        print("      also in: \((coverage[item.id] ?? []).sorted().joined(separator: ", "))")
+    }
+}
+
 print("\nCache size per category (limit \(CacheLimits.maxFileBytes / 1024) KB each):")
 var total = 0
 for category in NewsCategory.allCases {
     let lists = NewsSource.sources(for: category).compactMap { itemsBySource[$0.id] }
-    let items = NewsService.interleave(lists, limit: CacheLimits.maxItemsPerCategory)
-    let bytes = try NewsCache.encode(CachedNews(fetchedAt: Date(), items: items)).count
+    let topStories = TopStories.pick(from: lists, now: Date())
+    let items = NewsService.interleave(lists, limit: CacheLimits.maxItemsPerCategory, keeping: topStories)
+    let bytes = try NewsCache.encode(CachedNews(fetchedAt: Date(), items: items,
+                                                topStoryIDs: topStories.map(\.id))).count
     total += bytes
     let name = category.rawValue.padding(toLength: 14, withPad: " ", startingAt: 0)
     print(String(format: "   \(name) %3d items  %6.1f KB", items.count, Double(bytes) / 1024))

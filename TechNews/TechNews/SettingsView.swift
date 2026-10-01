@@ -173,14 +173,36 @@ extension RefreshInterval {
     }
 }
 
+extension StoryOrder {
+    var title: LocalizedStringResource {
+        switch self {
+        case .topStoriesFirst: "Top Stories First"
+        case .bySource: "By Source"
+        }
+    }
+}
+
 // MARK: - Content
 
 private struct ContentSettings: View {
     @AppStorage(NewsSettings.Key.hiddenSources, store: AppGroup.defaults) private var hiddenSources = ""
     @AppStorage(NewsSettings.Key.mutedWords, store: AppGroup.defaults) private var mutedWords = ""
+    @AppStorage(NewsSettings.Key.storyOrder, store: AppGroup.defaults) private var storyOrder = StoryOrder.standard
 
     var body: some View {
         Form {
+            Section {
+                Picker("Story order", selection: $storyOrder) {
+                    ForEach(StoryOrder.allCases) { order in
+                        Text(order.title).tag(order)
+                    }
+                }
+            } header: {
+                Text("Order")
+            } footer: {
+                Text("Top Stories First puts the stories that several outlets report on the first page. Applies to the widgets and the TechNews window.")
+                    .settingsFooter()
+            }
             Section {
                 ForEach(NewsSource.all, id: \.id) { source in
                     Toggle(isOn: isShown(source)) {
@@ -210,6 +232,7 @@ private struct ContentSettings: View {
         .formStyle(.grouped)
         .onChange(of: hiddenSources) { WidgetReloader.reloadSoon() }
         .onChange(of: mutedWords) { WidgetReloader.reloadSoon() }
+        .onChange(of: storyOrder) { WidgetReloader.reloadSoon() }
     }
 
     private func isShown(_ source: NewsSource) -> Binding<Bool> {

@@ -3,11 +3,13 @@ import SwiftUI
 
 /// Main window: a magazine front page for the selected category, with a masthead, category tabs
 /// that stay pinned while scrolling, a hero story and a grid of cards. Refresh also reloads the widgets.
+/// The most important stories come first unless Settings ask for one source after another.
 /// Stories that mention a muted word are left out, and headlines are downloaded again after the
 /// refresh interval chosen in Settings.
 struct ContentView: View {
     @AppStorage(NewsSettings.Key.mutedWords, store: AppGroup.defaults) private var mutedWords = ""
     @AppStorage(NewsSettings.Key.refreshInterval, store: AppGroup.defaults) private var refreshInterval = RefreshInterval.standard
+    @AppStorage(NewsSettings.Key.storyOrder, store: AppGroup.defaults) private var storyOrder = StoryOrder.standard
     @State private var category: NewsCategory = .all
     @State private var results: [NewsCategory: LoadedNews] = [:]
     @State private var loadingCategory: NewsCategory?
@@ -85,8 +87,7 @@ struct ContentView: View {
     private var content: some View {
         if let current = results[category] {
             let words = NewsSettings.lines(mutedWords)
-            let stories = current.items.indices
-                .map { Card(index: $0, item: current.items[$0]) }
+            let stories = current.cards(in: storyOrder)
                 .filter { !$0.item.mentions(anyOf: words) }
             if current.items.isEmpty {
                 ContentUnavailableView {
@@ -196,8 +197,8 @@ struct ContentView: View {
             return
         }
         withAnimation(.smooth) {
-            results[category] = LoadedNews(items: result.items, failedSourceIDs: result.failedSourceIDs,
-                                           fetchedAt: Date())
+            results[category] = LoadedNews(items: result.items, topStoryIDs: result.topStoryIDs,
+                                           failedSourceIDs: result.failedSourceIDs, fetchedAt: Date())
         }
         loadingCategory = nil
     }
@@ -232,8 +233,15 @@ private struct Masthead: View {
 
 private struct LoadedNews {
     let items: [NewsItem]
+    let topStoryIDs: [String]
     let failedSourceIDs: [String]
     let fetchedAt: Date
+
+    /// The stories as cards in `order`. Each card keeps its index in the downloaded list.
+    func cards(in order: StoryOrder) -> [Card] {
+        let indices = Dictionary(items.enumerated().map { ($1.id, $0) }, uniquingKeysWith: { first, _ in first })
+        return order.arrange(items, topStoryIDs: topStoryIDs).map { Card(index: indices[$0.id] ?? 0, item: $0) }
+    }
 }
 
 private struct Card: Identifiable {

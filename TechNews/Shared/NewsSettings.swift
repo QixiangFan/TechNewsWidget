@@ -10,6 +10,8 @@ nonisolated struct NewsSettings {
         static let hiddenSources = "hiddenSources"
         /// One word per line.
         static let mutedWords = "mutedWords"
+        /// Whether the most important stories come first (`StoryOrder`), in the widgets and the window.
+        static let storyOrder = "storyOrder"
         /// Set by ⌘R and "Update Now": caches downloaded before this date are downloaded again.
         static let refreshRequestedAt = "refreshRequestedAt"
         /// The main window's light or dark look (app only).
@@ -19,6 +21,7 @@ nonisolated struct NewsSettings {
     var refreshInterval: RefreshInterval
     var hiddenSourceIDs: Set<String>
     var mutedWords: [String]
+    var storyOrder: StoryOrder
     var refreshRequestedAt: Date?
 
     static func load(from defaults: UserDefaults = AppGroup.defaults) -> NewsSettings {
@@ -26,6 +29,7 @@ nonisolated struct NewsSettings {
             refreshInterval: RefreshInterval(rawValue: defaults.integer(forKey: Key.refreshInterval)) ?? .standard,
             hiddenSourceIDs: Set(lines(defaults.string(forKey: Key.hiddenSources) ?? "")),
             mutedWords: lines(defaults.string(forKey: Key.mutedWords) ?? ""),
+            storyOrder: defaults.string(forKey: Key.storyOrder).flatMap(StoryOrder.init) ?? .standard,
             refreshRequestedAt: defaults.object(forKey: Key.refreshRequestedAt) as? Date
         )
     }
@@ -43,6 +47,26 @@ nonisolated struct NewsSettings {
     /// Lists are stored as one string with a line per entry, which `@AppStorage` can bind to.
     static func lines(_ stored: String) -> [String] {
         stored.split(separator: "\n").map(String.init)
+    }
+}
+
+/// How stories of several sources are ordered.
+nonisolated enum StoryOrder: String, CaseIterable, Identifiable {
+    /// Stories that several outlets report come first (see `TopStories`), the rest take turns by source.
+    case topStoriesFirst
+    /// One story from each source in turn.
+    case bySource
+
+    static let standard = StoryOrder.topStoriesFirst
+
+    var id: String { rawValue }
+
+    /// `items` in this order, given the top stories picked when they were downloaded.
+    func arrange(_ items: [NewsItem], topStoryIDs: [String]?) -> [NewsItem] {
+        switch self {
+        case .topStoriesFirst: TopStories.movedToFront(items, ids: topStoryIDs ?? [])
+        case .bySource: items
+        }
     }
 }
 

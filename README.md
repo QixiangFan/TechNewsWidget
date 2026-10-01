@@ -27,6 +27,7 @@ Open Settings with ⌘, or the gear button in the toolbar.
 
 - **General**: open TechNews at login; light, dark or system appearance; how often news is refreshed (every 30 minutes to 8 hours, 2 hours by default), which applies to the widgets and the open window; when the widgets last updated, with an **Update Now** button.
 - **Content**
+  - **Order**: **Top Stories First** (default) puts the stories that several outlets report on the first page, in the widgets and the window; **By Source** takes one story from each source in turn. No AI is involved: two headlines count as the same story when they share uncommon words such as "World Labs" or "GPT-6.1", which also works between Chinese and English titles. Being near the top of its own feed and being recent count too. Morning roundups can back up other stories but are never moved up themselves. Hacker News and GitHub keep their own ranking.
   - **Widget Sources**: turn individual sources on or off for the widgets, for example to leave Hacker News and GitHub out of the "All" mix. The app window always shows every source. A widget whose category has every source turned off says so.
   - **Muted Words**: hide stories whose title or summary mentions a word, in the widgets and in the window. English words match whole words (and their plural), so "AI" hides "AI chips" and "苹果发布AI新功能" but not "said" or "OpenAI"; Chinese words match anywhere.
 - **Storage**: how much space the widget cache takes (headlines and pictures), and a button to clear it.
@@ -102,6 +103,7 @@ App 把同样的资讯排成杂志首页：顶部是一条头条大图，下面�
 
 - **通用**：登录时打开 TechNews；外观（跟随系统、浅色、深色）；刷新间隔（30 分钟到 8 小时，默认 2 小时），同时适用于小组件和打开着的窗口；小组件上次更新的时间，以及“立即更新”按钮。
 - **内容**
+  - **排序**：选“重要新闻优先”（默认）时，多家媒体都在报道的新闻会排到第一页，小组件和窗口都生效；选“按来源轮流”时，每个来源轮流取一条。这里不用 AI：两个标题共有“World Labs”“GPT-6.1”这类少见的词，就算作同一条新闻，中英文标题之间也能匹配上。在自己来源里排得越靠前、越新，也越靠前。“早报”一类的合集可以为别的新闻作证，但自己不会被提到前面。Hacker News 和 GitHub 保持它们自己的排名。
   - **小组件新闻来源**：单独打开或关闭小组件里的每个来源，比如让“全部”分类里不出现 Hacker News 和 GitHub。App 窗口始终显示全部来源。如果某个小组件所选分类的来源全被关闭，小组件上会给出提示。
   - **屏蔽词**：标题或摘要里含有屏蔽词的资讯，在小组件和窗口里都不显示。英文按整个单词匹配（包括复数），所以屏蔽“AI”会隐藏“AI chips”和“苹果发布AI新功能”，但不会隐藏“said”或“OpenAI”；中文词在任何位置出现都算。
 - **存储空间**：小组件缓存占用的空间（新闻列表和图片），以及清除缓存的按钮。

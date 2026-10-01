@@ -37,6 +37,14 @@ private func item(_ path: String, source: String = "s") -> NewsItem {
         #expect(cache.load(.english, now: fetchedAt.addingTimeInterval(CacheLimits.maxAge + 1)) == nil)
     }
 
+    @Test func keepsTopStories() throws {
+        let cache = temporaryCache()
+        let fetchedAt = Date(timeIntervalSince1970: 1_790_000_000)
+        let items = [item("a"), item("b")]
+        try cache.save(CachedNews(fetchedAt: fetchedAt, items: items, topStoryIDs: [items[1].id]), for: .all)
+        #expect(cache.load(.all, now: fetchedAt)?.topStoryIDs == [items[1].id])
+    }
+
     @Test func removesExpiredAndUnreadableFilesOnly() throws {
         let directory = FileManager.default.temporaryDirectory
             .appendingPathComponent("NewsKitTests-\(UUID().uuidString)", isDirectory: true)

@@ -35,7 +35,8 @@ extension NewsItem {
     private static let wordCharacter = #"[[\p{L}\p{N}]--[\p{Han}\p{Hiragana}\p{Katakana}]]"#
 }
 
-private extension String {
+extension String {
+    /// Ignores case, accents and full-width letters. Also used by `TopStories` to compare titles.
     var foldedForMatching: String {
         folding(options: [.caseInsensitive, .diacriticInsensitive, .widthInsensitive], locale: nil)
     }

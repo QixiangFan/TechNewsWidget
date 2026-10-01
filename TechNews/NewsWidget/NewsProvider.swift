@@ -104,7 +104,8 @@ struct NewsProvider: AppIntentTimelineProvider {
         guard !result.items.isEmpty else {
             return (cached, true)
         }
-        let fresh = CachedNews(fetchedAt: now, items: result.items, sourceIDs: sources.map(\.id))
+        let fresh = CachedNews(fetchedAt: now, items: result.items, sourceIDs: sources.map(\.id),
+                               topStoryIDs: result.topStoryIDs)
         _ = try? cache.save(fresh, for: category)
         PageStore.reset(category)
         return (fresh, false)
@@ -128,12 +129,12 @@ struct NewsProvider: AppIntentTimelineProvider {
         NewsCache().removeAll()
     }
 
-    /// The current page of the stories the settings let through. Until a download with the current
+    /// The current page of the stories the settings let through, in the order they ask for. Until a download with the current
     /// sources succeeds, the cache may still hold stories from a source that was just turned off.
     private func makeEntry(_ news: CachedNews?, category: NewsCategory, style: StyleOption, settings: NewsSettings,
                            family: WidgetFamily, date: Date) -> NewsEntry {
         let allItems = news?.items ?? []
-        let items = allItems.filter(settings.shows)
+        let items = settings.storyOrder.arrange(allItems, topStoryIDs: news?.topStoryIDs).filter(settings.shows)
         let perPage = family.headlinesPerPage(style: style)
         let pageCount = max(1, (items.count + perPage - 1) / perPage)
         let position = PageStore.position(for: category)
