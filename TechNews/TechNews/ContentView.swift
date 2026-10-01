@@ -4,8 +4,8 @@ import SwiftUI
 /// Main window: a magazine front page for the selected category, with a masthead, category tabs
 /// that stay pinned while scrolling, a hero story and a grid of cards. Refresh also reloads the widgets.
 /// The most important stories come first unless Settings ask for one source after another.
-/// Stories that mention a muted word are left out, and headlines are downloaded again after the
-/// refresh interval chosen in Settings.
+/// Stories that mention a muted word are left out. The window starts from the widgets' cache and
+/// downloads headlines again once they are older than the refresh interval chosen in Settings.
 struct ContentView: View {
     @AppStorage(NewsSettings.Key.mutedWords, store: AppGroup.defaults) private var mutedWords = ""
     @AppStorage(NewsSettings.Key.refreshInterval, store: AppGroup.defaults) private var refreshInterval = RefreshInterval.standard
@@ -63,6 +63,9 @@ struct ContentView: View {
         }
         .frame(minWidth: 720, minHeight: 560)
         .task(id: category) {
+            if results[category] == nil, let cached = widgetNews(for: category) {
+                results[category] = cached
+            }
             if results[category].map(isOutdated) ?? true {
                 await load(category)
             }
@@ -201,6 +204,17 @@ struct ContentView: View {
                                            failedSourceIDs: result.failedSourceIDs, fetchedAt: Date())
         }
         loadingCategory = nil
+    }
+
+    /// The widget's cached headlines, so opening the window doesn't download what a widget just did.
+    /// Nil when the widget left out a source (the window shows every source) or the cache is missing.
+    private func widgetNews(for category: NewsCategory) -> LoadedNews? {
+        guard let cached = NewsCache.shared.load(category),
+              cached.sourceIDs == NewsSource.sources(for: category).map(\.id) else {
+            return nil
+        }
+        return LoadedNews(items: cached.items, topStoryIDs: cached.topStoryIDs ?? [], failedSourceIDs: [],
+                          fetchedAt: cached.fetchedAt)
     }
 
     private func refresh() async {
