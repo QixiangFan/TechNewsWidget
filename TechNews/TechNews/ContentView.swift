@@ -40,8 +40,7 @@ struct ContentView: View {
                             .padding(.horizontal, Self.margin - 6)
                             .padding(.vertical, 10)
                             .frame(maxWidth: .infinity, alignment: .leading)
-                            .background(Color.canvas.opacity(0.88))
-                            .background(.ultraThinMaterial)
+                            .background(Color.canvas)
                     }
                 }
             }
@@ -52,6 +51,12 @@ struct ContentView: View {
             }
         }
         .background(Color.canvas)
+        // Covers the toolbar, so stories end at the category bar instead of scrolling on behind the toolbar.
+        .safeAreaInset(edge: .top, spacing: 0) {
+            Color.clear
+                .frame(height: 0)
+                .background(Color.canvas, ignoresSafeAreaEdges: .top)
+        }
         .safeAreaInset(edge: .bottom, spacing: 0) { statusBar }
         .toolbar {
             ToolbarItem(placement: .primaryAction) { refreshButton }
